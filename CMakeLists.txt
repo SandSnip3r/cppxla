@@ -9,7 +9,23 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-add_executable(pjrt_loader main.cpp)
+add_executable(pjrt_loader
+  main.cpp
+  pjrt/buffer.cpp
+  pjrt/buffer.hpp
+  pjrt/client.cpp
+  pjrt/client.hpp
+  pjrt/common.cpp
+  pjrt/common.hpp
+  pjrt/context.cpp
+  pjrt/context.hpp
+  pjrt/device.cpp
+  pjrt/device.hpp
+  pjrt/event.cpp
+  pjrt/event.hpp
+  pjrt/loadedExecutable.cpp
+  pjrt/loadedExecutable.hpp
+)
 
 target_include_directories(pjrt_loader PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}) # For pjrt_c_api.h
 
