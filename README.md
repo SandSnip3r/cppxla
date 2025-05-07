@@ -42,3 +42,7 @@ To run:
 ```
 ./build/pjrt_example
 ```
+
+## What's Next?
+
+I plan to tackle items in [the TODO list](TODO.md).
