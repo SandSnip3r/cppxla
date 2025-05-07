@@ -9,7 +9,7 @@ XLA is a C++ project, but the only way to use it in another project is to build 
 
 # Dependencies
 
-1. Since we do not need to build XLA, we need to get it from somewhere. We need an "XLA release". For now, we use the XLA plugin that ships with `jax[cuda]`. This plugin in a shared library.
+1. Since we do not need to build XLA, we need to get it from somewhere. We need an "XLA release". For now, we use the XLA plugin that ships with `jax[cuda]`. This plugin is a shared library.
 2. We also need an API to interface with the shared library. We need to use the [PJRT C API](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api.h) from [OpenXLA](https://github.com/openxla/xla).
 
 This project works by loading the XLA shared library and wraps the C API with an easier to use C++ API which does not depend on anything external.
