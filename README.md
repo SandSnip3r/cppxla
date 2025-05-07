@@ -2,8 +2,8 @@
 
 This project has two primary goals. These two goals are to provide a way to use XLA:
 
-1. Directly in C++ without needing to build all of XLA.
-2. In a CMake-based project.
+1. Directly in C++ without needing to build all of XLA
+2. In a CMake-based project
 
 XLA is a C++ project, but the only way to use it in another project is to build all of XLA and have a project which is built using Bazel.
 
