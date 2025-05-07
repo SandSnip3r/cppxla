@@ -11,7 +11,7 @@ XLA is a C++ project, but the only way to use it in another project is to build 
 
 Since we do not need to build XLA, we need to get it from somewhere. We need an "XLA release". For now, we use the XLA plugin that ships with `jax[cuda]`. This plugin in a shared library.
 
-We also need an API to interface with the shared library. We need to use the [PJRT C API](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api.h).
+We also need an API to interface with the shared library. We need to use the [PJRT C API](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api.h) from [OpenXLA](https://github.com/openxla/xla).
 
 This project works by loading the XLA shared library and wraps the C API with an easier to use C++ API which does not depend on anything external.
 
@@ -42,6 +42,10 @@ To run:
 ```
 ./build/pjrt_example
 ```
+
+# Design
+
+Dive into the [pjrt directory](pjrt/) to see the design principals.
 
 # What's Next?
 
