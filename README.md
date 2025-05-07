@@ -18,8 +18,8 @@ This project works by loading the XLA shared library and wraps the C API with an
 
 After cloning this repository, two steps are required before you are ready to build:
 
-1. Go grab the pjrt_c_api.h file from OpenXLA. Place it in the root level of this project. We provide one, but it is not always kept up to date.
-2. Pip install jax\[cuda\] in a python virtual environment in the current directory.
+1. Go grab the [pjrt_c_api.h](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api.h) from [OpenXLA](https://github.com/openxla/xla). Place it in the root level of this project. We provide one, but it is not always kept up to date.
+2. Pip install jax\[cuda\] in a python virtual environment in the current directory:
 
 ```
 python -m venv .venv
@@ -37,7 +37,7 @@ cmake --build build
 
 # Running
 
-To run:
+To run the example in this repository:
 ```
 ./build/pjrt_example
 ```
