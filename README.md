@@ -15,7 +15,7 @@ We also need an API to interface with the shared library. We need to use the [PJ
 
 This project works by loading the XLA shared library and wraps the C API with an easier to use C++ API which does not depend on anything external.
 
-## Setup
+# Setup
 
 After cloning this repository, two steps are required before you are ready to build:
 
@@ -28,7 +28,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Building
+# Building
 
 To build:
 ```
@@ -36,13 +36,13 @@ cmake . -B build
 cmake --build build
 ```
 
-## Running
+# Running
 
 To run:
 ```
 ./build/pjrt_example
 ```
 
-## What's Next?
+# What's Next?
 
 I plan to tackle items in [the TODO list](TODO.md).
