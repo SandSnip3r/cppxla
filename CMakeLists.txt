@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(pjrt_loader CXX)
+project(pjrt_example CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -51,7 +51,7 @@ add_custom_target(GenerateStableHlo ALL
     COMMENT "Ensuring ${OUTPUT_HLO_FILE_NAME} is generated."
 )
 
-add_executable(pjrt_loader
+add_executable(pjrt_example
   main.cpp
   pjrt/buffer.cpp
   pjrt/buffer.hpp
@@ -69,7 +69,7 @@ add_executable(pjrt_loader
   pjrt/loadedExecutable.hpp
 )
 
-target_include_directories(pjrt_loader PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}) # For pjrt_c_api.h
+target_include_directories(pjrt_example PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}) # For pjrt_c_api.h
 
 if(NOT CMAKE_DL_LIBS)
     message(WARNING "CMAKE_DL_LIBS is not defined. Dynamic linking might fail. Trying to link with 'dl' manually.")
@@ -79,7 +79,7 @@ if(NOT CMAKE_DL_LIBS)
     endif()
     set(CMAKE_DL_LIBS ${DL_LIBRARY})
 endif()
-target_link_libraries(pjrt_loader PRIVATE ${CMAKE_DL_LIBS})
+target_link_libraries(pjrt_example PRIVATE ${CMAKE_DL_LIBS})
 
 # --- Detect .venv Python specific paths ---
 # Find the python3.x directory within .venv/lib/
@@ -125,7 +125,7 @@ if(NOT IS_DIRECTORY ${JAXLIB_DIR})
 endif()
 
 # Pass the plugin path to the C++ code
-target_compile_definitions(pjrt_loader PRIVATE
+target_compile_definitions(pjrt_example PRIVATE
   "PJRT_PLUGIN_PATH=\"${PJRT_PLUGIN_FULL_PATH}\""
   "STABLEHLO_PROGRAM_PATH=\"${OUTPUT_HLO_FILE_PATH}\""
 )
@@ -151,15 +151,15 @@ foreach(RPATH_DIR ${RPATH_ENTRIES})
     endif()
 endforeach()
 
-target_link_options(pjrt_loader PRIVATE ${RPATH_LINKER_FLAGS})
+target_link_options(pjrt_example PRIVATE ${RPATH_LINKER_FLAGS})
 
-message(STATUS "Target executable: pjrt_loader")
+message(STATUS "Target executable: pjrt_example")
 message(STATUS "PJRT Plugin to be loaded by executable: ${PJRT_PLUGIN_FULL_PATH}")
-message(STATUS "RPATH to be set for pjrt_loader (helps find dependencies of the plugin):")
+message(STATUS "RPATH to be set for pjrt_example (helps find dependencies of the plugin):")
 foreach(RPATH_DIR ${RPATH_ENTRIES})
     message(STATUS "  ${RPATH_DIR}")
 endforeach()
 
 message(STATUS "To run after building (e.g., from a 'build' directory):")
 message(STATUS "  cd build")
-message(STATUS "  ./pjrt_loader")
+message(STATUS "  ./pjrt_example")
