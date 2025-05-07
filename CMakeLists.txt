@@ -9,6 +9,48 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+# Define the name of your Python script
+set(PYTHON_SCRIPT_NAME "myJax.py")
+# Define the name for the output file
+set(OUTPUT_HLO_FILE_NAME "stableHlo.program")
+
+# Construct the full path to your Python script (assuming it's in the source directory)
+set(PYTHON_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${PYTHON_SCRIPT_NAME}")
+
+# Construct the full path for the output file (placing it in the build directory)
+set(OUTPUT_HLO_FILE_PATH "${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_HLO_FILE_NAME}")
+
+# Add a custom command that generates the StableHLO file.
+# This command runs the Python script and uses shell redirection '>'
+# to capture its standard output.
+# VERBATIM is important to ensure the command string (especially the '>')
+# is passed correctly to the underlying build tool (e.g., Make, Ninja),
+# which will typically use a shell to execute it.
+add_custom_command(
+    OUTPUT ${OUTPUT_HLO_FILE_PATH}
+    COMMAND
+        ${Python3_EXECUTABLE} ${PYTHON_SCRIPT_PATH} > ${OUTPUT_HLO_FILE_PATH}
+    DEPENDS
+        ${PYTHON_SCRIPT_PATH} # The command depends on the Python script itself
+        ${Python3_EXECUTABLE} # And on the interpreter
+    MAIN_DEPENDENCY ${PYTHON_SCRIPT_PATH} # More explicit primary dependency
+    COMMENT "Generating ${OUTPUT_HLO_FILE_NAME} from ${PYTHON_SCRIPT_NAME}"
+    WORKING_DIRECTORY
+        ${CMAKE_CURRENT_SOURCE_DIR} # Sets the current working directory for the script execution.
+                                     # Use CMAKE_CURRENT_BINARY_DIR if more appropriate for your script.
+    VERBATIM # Crucial for correct handling of special characters and arguments.
+)
+
+# Add a custom target to trigger the execution of the custom command.
+# You can build this target explicitly, e.g., `cmake --build . --target GenerateStableHlo`
+# or `make GenerateStableHlo` or `ninja GenerateStableHlo`.
+add_custom_target(GenerateStableHlo ALL
+    DEPENDS ${OUTPUT_HLO_FILE_PATH} # This target depends on the output file being created.
+    COMMENT "Ensuring ${OUTPUT_HLO_FILE_NAME} is generated."
+)
+
 add_executable(pjrt_loader
   main.cpp
   pjrt/buffer.cpp
@@ -19,8 +61,8 @@ add_executable(pjrt_loader
   pjrt/common.hpp
   pjrt/context.cpp
   pjrt/context.hpp
-  pjrt/device.cpp
-  pjrt/device.hpp
+  pjrt/deviceView.cpp
+  pjrt/deviceView.hpp
   pjrt/event.cpp
   pjrt/event.hpp
   pjrt/loadedExecutable.cpp
@@ -83,7 +125,10 @@ if(NOT IS_DIRECTORY ${JAXLIB_DIR})
 endif()
 
 # Pass the plugin path to the C++ code
-target_compile_definitions(pjrt_loader PRIVATE "PJRT_PLUGIN_PATH=\"${PJRT_PLUGIN_FULL_PATH}\"")
+target_compile_definitions(pjrt_loader PRIVATE
+  "PJRT_PLUGIN_PATH=\"${PJRT_PLUGIN_FULL_PATH}\""
+  "STABLEHLO_PROGRAM_PATH=\"${OUTPUT_HLO_FILE_PATH}\""
+)
 
 # Set RPATH for the executable
 set(CMAKE_MACOSX_RPATH OFF)

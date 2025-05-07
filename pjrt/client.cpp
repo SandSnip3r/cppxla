@@ -124,7 +124,7 @@ LoadedExecutable Client::compileFromStableHloString(const std::string &stableHlo
   return LoadedExecutable(context_, compiledExecutable);
 }
 
-Device Client::getFirstDevice() const {
+DeviceView Client::getFirstDevice() const {
   // Get addressable devices.
   PJRT_Client_AddressableDevices_Args ad_args;
   ad_args.struct_size = PJRT_Client_AddressableDevices_Args_STRUCT_SIZE;
@@ -141,10 +141,10 @@ Device Client::getFirstDevice() const {
     throw std::runtime_error("No addressable devices found.");
   }
 
-  return Device(context_, ad_args.addressable_devices[0]);
+  return DeviceView(context_, ad_args.addressable_devices[0]);
 }
 
-Buffer Client::createBufferFromData(float singleFloat, const Device &device) const {
+Buffer Client::createBufferFromData(float singleFloat, const DeviceView &device) const {
   // Create Input Buffer from Host Data
   PJRT_Client_BufferFromHostBuffer_Args bfhh_args;
   bfhh_args.struct_size = PJRT_Client_BufferFromHostBuffer_Args_STRUCT_SIZE;

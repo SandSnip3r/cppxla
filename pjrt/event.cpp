@@ -34,7 +34,17 @@ void Event::wait() {
     await_args.event = event_;
     PJRT_Error* await_error = context_.pjrtApi_->PJRT_Event_Await(&await_args);
     if (await_error) {
-      throw std::runtime_error(freeErrorAndReturnString(context_, await_error, "PJRT_Event_Await for input buffer host transfer failed."));
+      throw std::runtime_error(freeErrorAndReturnString(context_, await_error, "PJRT_Event_Await failed."));
+    }
+
+    // Check the status of the execution from the event itself
+    PJRT_Event_Error_Args event_error_args;
+    event_error_args.struct_size = PJRT_Event_Error_Args_STRUCT_SIZE;
+    event_error_args.extension_start = nullptr;
+    event_error_args.event = event_;
+    PJRT_Error* exec_status_error = context_.pjrtApi_->PJRT_Event_Error(&event_error_args); // This gets the error *from* the event
+    if (exec_status_error) {
+      throw std::runtime_error(freeErrorAndReturnString(context_, exec_status_error, "PJRT_Event_Error failed."));
     }
     destroyEvent();
   }

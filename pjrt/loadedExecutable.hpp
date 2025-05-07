@@ -8,14 +8,14 @@ struct PJRT_LoadedExecutable;
 namespace pjrt {
 
 class Context;
-class Device;
+class DeviceView;
 
 class LoadedExecutable {
 public:
   LoadedExecutable(const Context &context, PJRT_LoadedExecutable *executable);
   ~LoadedExecutable();
 
-  Buffer execute(const Device &device, const Buffer &inputBuffer);
+  Buffer execute(const DeviceView &device, const Buffer &inputBuffer);
 public:
 // private:
   const Context &context_;

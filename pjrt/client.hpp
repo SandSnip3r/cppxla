@@ -2,7 +2,7 @@
 #define PJRT_CLIENT_HPP_
 
 #include "buffer.hpp"
-#include "device.hpp"
+#include "deviceView.hpp"
 #include "loadedExecutable.hpp"
 
 #include <string>
@@ -21,10 +21,10 @@ public:
   std::string platformName() const;
 
   LoadedExecutable compileFromStableHloString(const std::string &stableHloProgram) const;
-  Device getFirstDevice() const;
+  DeviceView getFirstDevice() const;
 
   // Synchronously creates buffer and transfers it to device.
-  Buffer createBufferFromData(float singleFloat, const Device &device) const;
+  Buffer createBufferFromData(float singleFloat, const DeviceView &device) const;
 public:
 // private:
   const Context &context_;

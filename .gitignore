@@ -2,3 +2,4 @@ build/
 dump/
 .venv/
 .vscode/
+__pycache__/

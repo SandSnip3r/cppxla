@@ -11,6 +11,8 @@ class Buffer {
 public:
   Buffer(const Context &context, PJRT_Buffer *buffer);
   ~Buffer();
+
+  float toHost();
 public:
 // private:
   const Context &context_;

@@ -14,7 +14,7 @@
 
 #include <dlfcn.h> // For dlopen, dlsym, dlclose, dlerror
 
-#include <iostream>
+#include <stdexcept>
 
 #ifndef PJRT_PLUGIN_PATH
   #error "PJRT_PLUGIN_PATH is not defined. Please define it via CMake's target_compile_definitions."
@@ -24,7 +24,6 @@ namespace pjrt {
 
 Context::Context() {
   const char* plugin_path = PJRT_PLUGIN_PATH;
-  std::cout << "Attempting to load PJRT plugin: " << plugin_path << std::endl;
 
   // Open the plugin
   // RTLD_LAZY: Resolve symbols only as the code that references them is executed.
@@ -37,7 +36,6 @@ Context::Context() {
   if (!pluginHandle_) {
     throw std::runtime_error("dlopen succeeded, but plugin handle is null");
   }
-  std::cout << "Plugin loaded successfully." << std::endl;
 
   // Find the GetPjrtApi symbol
   typedef const PJRT_Api* (*GetPjrtApi_Func_Type)();
@@ -50,25 +48,20 @@ Context::Context() {
   if (!GetPjrtApi_func) {
     throw std::runtime_error("'GetPjrtApi' symbol found but the function pointer is null.");
   }
-  std::cout << "'GetPjrtApi' symbol found successfully." << std::endl;
 
   // Call GetPjrtApi to get the API function table
   pjrtApi_ = GetPjrtApi_func();
   if (!pjrtApi_) {
     throw std::runtime_error("Call to GetPjrtApi_func() returned a null PJRT_Api pointer.");
   }
-  std::cout << "PJRT_Api pointer obtained successfully." << std::endl;
 }
 
 Context::~Context() {
   if (pluginHandle_ != nullptr) {
     // Close the plugin
     if (dlclose(pluginHandle_) != 0) {
-      std::cerr << "Error closing PJRT plugin: " << dlerror() << std::endl;
-    } else {
-      std::cout << "Plugin closed successfully." << std::endl;
+      throw std::runtime_error("Error closing PJRT plugin: "+std::string(dlerror()));
     }
-    pluginHandle_ = nullptr;
   }
 }
 
