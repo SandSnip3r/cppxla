@@ -24,10 +24,6 @@
 // Define the function pointer type for GetPjrtApi
 typedef const PJRT_Api* (*GetPjrtApi_Func_Type)();
 
-#ifndef STABLEHLO_PROGRAM_PATH
-  #error "STABLEHLO_PROGRAM_PATH is not defined. Please define it via CMake's target_compile_definitions."
-#endif
-
 // Helper function to print PJRT_Error (if any) and destroy it
 void handle_pjrt_error(PJRT_Error* error, const PJRT_Api* pjrt_api, const std::string& context_message) {
   if (error) {
@@ -84,6 +80,10 @@ void executeAndVerify(pjrt::DeviceView &device, pjrt::Client &client, pjrt::Load
 }
 
 int main(int argc, char* argv[]) {
+  if (argc != 2) {
+    std::cout << "Usage: " << argv[0] << " <path to program in StableHlo text format>" << std::endl;
+    return 1;
+  }
   pjrt::Context context;
   std::cout << "Successfully initialized PJRT API." << std::endl;
   performVersionCheck(context);
@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
   // Read HLO program from file
   std::string stableHloStr;
   try {
-    const char* hloProgramFilePath = STABLEHLO_PROGRAM_PATH;
+    const char* hloProgramFilePath = argv[1];
     stableHloStr = readFileIntoStream(hloProgramFilePath);
     std::cout << "Successfully read HLO program from: " << hloProgramFilePath << std::endl;
   } catch (const std::exception& e) {

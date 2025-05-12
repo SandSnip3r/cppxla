@@ -37,9 +37,13 @@ cmake --build build
 
 # Running
 
-To run the example in this repository:
+To run the example in this repository, first generate the example program in the StableHlo text format. PJRT's input format for a program which you'd like to compile is StableHLO:
 ```
-./build/pjrt_example
+python myJax.py > myStableHlo.txt
+```
+Now, run the example with the generated StableHlo program:
+```
+./build/pjrt_example myStableHlo.txt
 ```
 
 # Design
