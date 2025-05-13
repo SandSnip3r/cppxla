@@ -19,6 +19,8 @@ add_executable(pjrt_example
   pjrt/common.hpp
   pjrt/context.cpp
   pjrt/context.hpp
+  pjrt/detail/callbackUserData.cpp
+  pjrt/detail/callbackUserData.hpp
   pjrt/deviceView.cpp
   pjrt/deviceView.hpp
   pjrt/event.cpp

@@ -1,5 +1,6 @@
 #include "common.hpp"
 #include "context.hpp"
+#include "detail/callbackUserData.hpp"
 #include "deviceView.hpp"
 #include "event.hpp"
 #include "loadedExecutable.hpp"
@@ -16,7 +17,6 @@
 #pragma GCC diagnostic pop
 #endif
 
-#include <iostream>
 #include <stdexcept>
 
 namespace pjrt {
@@ -39,7 +39,7 @@ LoadedExecutable::~LoadedExecutable() {
   }
 }
 
-Buffer LoadedExecutable::execute(const DeviceView &device, const Buffer &inputBuffer) {
+std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Buffer &inputBuffer) {
   // Prepare and Execute the Compiled Program
   PJRT_ExecuteOptions exec_options;
   exec_options.struct_size = PJRT_ExecuteOptions_STRUCT_SIZE;
@@ -66,11 +66,12 @@ Buffer LoadedExecutable::execute(const DeviceView &device, const Buffer &inputBu
   exec_args.num_devices = 1; // We are launching on a single device instance here
   exec_args.num_args = 1;    // The @main function has one argument %arg0
 
+  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_));
+  
   // Output lists: Our program has 1 output.
   // The API will populate the PJRT_Buffer* in this array.
-  PJRT_Buffer* output_buffer_handles_for_device0[1]; // For 1 output from the function on device 0
   PJRT_Buffer** output_lists_for_all_devices[1];    // Array of lists of outputs
-  output_lists_for_all_devices[0] = output_buffer_handles_for_device0;
+  output_lists_for_all_devices[0] = &callbackUserData->getData().buffer_;
   exec_args.output_lists = output_lists_for_all_devices;
 
   // Device complete events: one event per device in the launch
@@ -83,16 +84,26 @@ Buffer LoadedExecutable::execute(const DeviceView &device, const Buffer &inputBu
     throw std::runtime_error(freeErrorAndReturnString(context_, exec_error, "PJRT_LoadedExecutable_Execute failed."));
   }
 
-  // The actual PJRT_Event* and PJRT_Buffer* for the first (and only) device and first output
-  // execution_complete_event = device_complete_event_handles[0];
-  // output_buffer = output_buffer_handles_for_device0[0];
-  Event executionCompleteEvent(context_, device_complete_event_handles[0]);
-  Buffer outputBuffer(context_, output_buffer_handles_for_device0[0]);
+  std::future<Buffer> future = callbackUserData->getFuture();
+  {
+    PJRT_Event_OnReady_Args eventOnReadyArgs;
+    eventOnReadyArgs.struct_size = PJRT_Event_OnReady_Args_STRUCT_SIZE;
+    eventOnReadyArgs.extension_start = nullptr;
+    eventOnReadyArgs.event = device_complete_event_handles[0];
+    eventOnReadyArgs.callback = &detail::eventReadyCallback<Buffer>;
+    // Pass ownership to PJRT. It will come back to us in our callback or we'll free it momentarily in the case of an error.
+    detail::CallbackUserData<Buffer> *callbackUserDataRawPtr = callbackUserData.release();
+    eventOnReadyArgs.user_arg = callbackUserDataRawPtr;
 
-  // Wait for execution to complete
-  executionCompleteEvent.wait();
+    PJRT_Error *eventReadyError = context_.pjrtApi_->PJRT_Event_OnReady(&eventOnReadyArgs);
+    if (eventReadyError != nullptr) {
+      // TODO: Are we responsible for freeing our CallbackUserData? My current guess is that we are.
+      delete callbackUserDataRawPtr;
+      throw std::runtime_error(freeErrorAndReturnString(context_, eventReadyError, "PJRT_Event_OnReady failed."));
+    }
+  }
 
-  return outputBuffer;
+  return future;
 }
 
   

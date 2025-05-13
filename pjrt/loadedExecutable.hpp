@@ -3,6 +3,8 @@
 
 #include "buffer.hpp"
 
+#include <future>
+
 struct PJRT_LoadedExecutable;
 
 namespace pjrt {
@@ -15,7 +17,7 @@ public:
   LoadedExecutable(const Context &context, PJRT_LoadedExecutable *executable);
   ~LoadedExecutable();
 
-  Buffer execute(const DeviceView &device, const Buffer &inputBuffer);
+  std::future<Buffer> execute(const DeviceView &device, const Buffer &inputBuffer);
 public:
 // private:
   const Context &context_;

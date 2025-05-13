@@ -70,8 +70,8 @@ void performVersionCheck(pjrt::Context &context) {
 
 void executeAndVerify(pjrt::DeviceView &device, pjrt::Client &client, pjrt::LoadedExecutable &executable, float input) {
   pjrt::Buffer inputBuffer = client.createBufferFromData(input, device);
-  pjrt::Buffer outputBuffer = executable.execute(device, inputBuffer);
-  std::future<float> outputFuture = outputBuffer.toHost();
+  std::future<pjrt::Buffer> outputBuffer = executable.execute(device, inputBuffer);
+  std::future<float> outputFuture = outputBuffer.get().toHost();
   float output = outputFuture.get();
   if (output != input+1) {
     std::cout << "Unexpected result! " << input+1 << " expected, " << output << " received" << std::endl;
@@ -115,9 +115,9 @@ int main(int argc, char* argv[]) {
   pjrt::Buffer inputBuffer = client.createBufferFromData(host_input_data, device);
   std::cout << "Input buffer created and transfer to device is complete." << std::endl;
   std::cout << "Executing compiled program..." << std::endl;
-  pjrt::Buffer outputBuffer = executable.execute(device, inputBuffer);
+  std::future<pjrt::Buffer> outputBuffer = executable.execute(device, inputBuffer);
   std::cout << "Execution complete" << std::endl;
-  std::future<float> outputFuture = outputBuffer.toHost();
+  std::future<float> outputFuture = outputBuffer.get().toHost();
   float result = outputFuture.get();
   std::cout << "Output value: " << result << std::endl;
 

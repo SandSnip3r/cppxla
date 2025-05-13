@@ -11,7 +11,10 @@ class Context;
 
 class Buffer {
 public:
+  Buffer(const Context &context);
   Buffer(const Context &context, PJRT_Buffer *buffer);
+  Buffer(Buffer &&other);
+
   ~Buffer();
 
   std::future<float> toHost();
