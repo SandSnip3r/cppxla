@@ -1,6 +1,8 @@
 #ifndef PJRT_BUFFER_HPP_
 #define PJRT_BUFFER_HPP_
 
+#include <future>
+
 struct PJRT_Buffer;
 
 namespace pjrt {
@@ -12,7 +14,7 @@ public:
   Buffer(const Context &context, PJRT_Buffer *buffer);
   ~Buffer();
 
-  float toHost();
+  std::future<float> toHost();
 public:
 // private:
   const Context &context_;
