@@ -1,6 +1,7 @@
 #include "client.hpp"
 #include "common.hpp"
 #include "context.hpp"
+#include "detail/callbackUserData.hpp"
 #include "event.hpp"
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -144,7 +145,7 @@ DeviceView Client::getFirstDevice() const {
   return DeviceView(context_, ad_args.addressable_devices[0]);
 }
 
-Buffer Client::createBufferFromData(float singleFloat, const DeviceView &device) const {
+std::future<Buffer> Client::createBufferFromData(float singleFloat, const DeviceView &device) const {
   // Create Input Buffer from Host Data
   PJRT_Client_BufferFromHostBuffer_Args bfhh_args;
   bfhh_args.struct_size = PJRT_Client_BufferFromHostBuffer_Args_STRUCT_SIZE;
@@ -173,17 +174,41 @@ Buffer Client::createBufferFromData(float singleFloat, const DeviceView &device)
   if (bfhh_error != nullptr) {
     throw std::runtime_error(freeErrorAndReturnString(context_, bfhh_error, "PJRT_Client_BufferFromHostBuffer failed."));
   }
-  
-  Buffer buffer(context_, bfhh_args.buffer);
-  PJRT_Event* input_buffer_host_transfer_event = bfhh_args.done_with_host_buffer;
-  if (input_buffer_host_transfer_event == nullptr) {
-    throw std::runtime_error("Allocated buffer on device, but have no event to wait on for completion of transfer");
-  }
-  Event transferCompletedEvent(context_, input_buffer_host_transfer_event);
-  // Wait for the host-to-device transfer to complete for the input buffer
-  transferCompletedEvent.wait();
 
-  return buffer;
+  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_, bfhh_args.buffer));
+  return getFutureForEvent(context_, bfhh_args.done_with_host_buffer, std::move(callbackUserData));
+
+  // std::future<Buffer> future = callbackUserData->getFuture();
+  // {
+  //   PJRT_Event_OnReady_Args eventOnReadyArgs;
+  //   eventOnReadyArgs.struct_size = PJRT_Event_OnReady_Args_STRUCT_SIZE;
+  //   eventOnReadyArgs.extension_start = nullptr;
+  //   eventOnReadyArgs.event = bfhh_args.done_with_host_buffer;
+  //   eventOnReadyArgs.callback = &detail::eventReadyCallback<Buffer>;
+  //   // Pass ownership to PJRT. It will come back to us in our callback or we'll free it momentarily in the case of an error.
+  //   detail::CallbackUserData<Buffer> *callbackUserDataRawPtr = callbackUserData.release();
+  //   eventOnReadyArgs.user_arg = callbackUserDataRawPtr;
+
+  //   PJRT_Error *eventReadyError = context_.pjrtApi_->PJRT_Event_OnReady(&eventOnReadyArgs);
+  //   if (eventReadyError != nullptr) {
+  //     // TODO: Are we responsible for freeing our CallbackUserData? My current guess is that we are.
+  //     delete callbackUserDataRawPtr;
+  //     throw std::runtime_error(freeErrorAndReturnString(context_, eventReadyError, "PJRT_Event_OnReady failed."));
+  //   }
+  // }
+
+  // return future;
+  
+  // Buffer buffer(context_, bfhh_args.buffer);
+  // PJRT_Event* input_buffer_host_transfer_event = bfhh_args.done_with_host_buffer;
+  // if (input_buffer_host_transfer_event == nullptr) {
+  //   throw std::runtime_error("Allocated buffer on device, but have no event to wait on for completion of transfer");
+  // }
+  // Event transferCompletedEvent(context_, input_buffer_host_transfer_event);
+  // // Wait for the host-to-device transfer to complete for the input buffer
+  // transferCompletedEvent.wait();
+
+  // return buffer;
 }
 
 } // namespace pjrt

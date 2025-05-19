@@ -60,27 +60,7 @@ std::future<float> Buffer::toHost() {
     throw std::runtime_error(freeErrorAndReturnString(context_, bthh_error, "PJRT_Buffer_ToHostBuffer failed."));
   }
 
-  std::future<float> future = callbackUserData->getFuture();
-
-  {
-    PJRT_Event_OnReady_Args eventOnReadyArgs;
-    eventOnReadyArgs.struct_size = PJRT_Event_OnReady_Args_STRUCT_SIZE;
-    eventOnReadyArgs.extension_start = nullptr;
-    eventOnReadyArgs.event = bthh_args.event;
-    eventOnReadyArgs.callback = &detail::eventReadyCallback<float>;
-    // Pass ownership to PJRT. It will come back to us in our callback or we'll free it momentarily in the case of an error.
-    detail::CallbackUserData<float> *callbackUserDataRawPtr = callbackUserData.release();
-    eventOnReadyArgs.user_arg = callbackUserDataRawPtr;
-
-    PJRT_Error *eventReadyError = context_.pjrtApi_->PJRT_Event_OnReady(&eventOnReadyArgs);
-    if (eventReadyError != nullptr) {
-      // TODO: Are we responsible for freeing our CallbackUserData? My current guess is that we are.
-      delete callbackUserDataRawPtr;
-      throw std::runtime_error(freeErrorAndReturnString(context_, eventReadyError, "PJRT_Event_OnReady failed."));
-    }
-  }
-
-  return future;
+  return getFutureForEvent(context_, bthh_args.event, std::move(callbackUserData));
 }
 
 } // namespace pjrt

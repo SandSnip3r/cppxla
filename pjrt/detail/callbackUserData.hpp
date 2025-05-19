@@ -3,6 +3,18 @@
 
 #include "pjrt/context.hpp"
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wchanges-meaning"
+#endif
+
+// Assume pjrt_c_api.h is in the same directory or an include path
+#include "pjrt_c_api.h"
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include <future>
 #include <iostream>
 
@@ -60,6 +72,29 @@ void eventReadyCallback(PJRT_Error *error, void *userArgment) {
       throw std::runtime_error("PJRT_Event_OnReady called our callback with an error, but did not provide us with our user argument");
     }
   }
+}
+
+template <typename DataType>
+std::future<DataType> getFutureForEvent(const Context &context, PJRT_Event *event, std::unique_ptr<detail::CallbackUserData<DataType>> &&callbackUserData) {
+  std::future<DataType> future = callbackUserData->getFuture();
+  {
+    PJRT_Event_OnReady_Args eventOnReadyArgs;
+    eventOnReadyArgs.struct_size = PJRT_Event_OnReady_Args_STRUCT_SIZE;
+    eventOnReadyArgs.extension_start = nullptr;
+    eventOnReadyArgs.event = event;
+    eventOnReadyArgs.callback = &detail::eventReadyCallback<DataType>;
+    // Pass ownership to PJRT. It will come back to us in our callback or we'll free it momentarily in the case of an error.
+    detail::CallbackUserData<DataType> *callbackUserDataRawPtr = callbackUserData.release();
+    eventOnReadyArgs.user_arg = callbackUserDataRawPtr;
+
+    PJRT_Error *eventReadyError = context.pjrtApi_->PJRT_Event_OnReady(&eventOnReadyArgs);
+    if (eventReadyError != nullptr) {
+      // TODO: Are we responsible for freeing our CallbackUserData? My current guess is that we are.
+      delete callbackUserDataRawPtr;
+      throw std::runtime_error(freeErrorAndReturnString(context, eventReadyError, "PJRT_Event_OnReady failed."));
+    }
+  }
+  return future;
 }
   
 } // namespace pjrt::detail

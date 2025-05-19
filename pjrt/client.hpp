@@ -5,6 +5,7 @@
 #include "deviceView.hpp"
 #include "loadedExecutable.hpp"
 
+#include <future>
 #include <string>
 
 struct PJRT_Client;
@@ -24,7 +25,7 @@ public:
   DeviceView getFirstDevice() const;
 
   // Synchronously creates buffer and transfers it to device.
-  Buffer createBufferFromData(float singleFloat, const DeviceView &device) const;
+  std::future<Buffer> createBufferFromData(float singleFloat, const DeviceView &device) const;
 public:
 // private:
   const Context &context_;

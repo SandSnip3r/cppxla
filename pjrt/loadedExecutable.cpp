@@ -84,26 +84,7 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
     throw std::runtime_error(freeErrorAndReturnString(context_, exec_error, "PJRT_LoadedExecutable_Execute failed."));
   }
 
-  std::future<Buffer> future = callbackUserData->getFuture();
-  {
-    PJRT_Event_OnReady_Args eventOnReadyArgs;
-    eventOnReadyArgs.struct_size = PJRT_Event_OnReady_Args_STRUCT_SIZE;
-    eventOnReadyArgs.extension_start = nullptr;
-    eventOnReadyArgs.event = device_complete_event_handles[0];
-    eventOnReadyArgs.callback = &detail::eventReadyCallback<Buffer>;
-    // Pass ownership to PJRT. It will come back to us in our callback or we'll free it momentarily in the case of an error.
-    detail::CallbackUserData<Buffer> *callbackUserDataRawPtr = callbackUserData.release();
-    eventOnReadyArgs.user_arg = callbackUserDataRawPtr;
-
-    PJRT_Error *eventReadyError = context_.pjrtApi_->PJRT_Event_OnReady(&eventOnReadyArgs);
-    if (eventReadyError != nullptr) {
-      // TODO: Are we responsible for freeing our CallbackUserData? My current guess is that we are.
-      delete callbackUserDataRawPtr;
-      throw std::runtime_error(freeErrorAndReturnString(context_, eventReadyError, "PJRT_Event_OnReady failed."));
-    }
-  }
-
-  return future;
+  return getFutureForEvent(context_, device_complete_event_handles[0], std::move(callbackUserData));
 }
 
   
