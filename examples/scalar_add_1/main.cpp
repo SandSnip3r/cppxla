@@ -69,7 +69,7 @@ void performVersionCheck(pjrt::Context &context) {
 }
 
 void executeAndVerify(pjrt::DeviceView &device, pjrt::Client &client, pjrt::LoadedExecutable &executable, float input) {
-  std::future<pjrt::Buffer> inputBuffer = client.createBufferFromData(input, device);
+  std::future<pjrt::Buffer> inputBuffer = client.transferToDevice(&input, {}, device);
   std::cout << "Started transfer" << std::endl;
   pjrt::Buffer buffer = inputBuffer.get();
   std::cout << "Transfer complete, starting execution" << std::endl;
@@ -87,10 +87,6 @@ void executeAndVerify(pjrt::DeviceView &device, pjrt::Client &client, pjrt::Load
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 2) {
-    std::cout << "Usage: " << argv[0] << " <path to program in StableHlo text format>" << std::endl;
-    return 1;
-  }
   pjrt::Context context;
   std::cout << "Successfully initialized PJRT API." << std::endl;
   performVersionCheck(context);
@@ -102,7 +98,7 @@ int main(int argc, char* argv[]) {
   // Read HLO program from file
   std::string stableHloStr;
   try {
-    const char* hloProgramFilePath = argv[1];
+    const char* hloProgramFilePath = "myStableHlo.txt";
     stableHloStr = readFileIntoStream(hloProgramFilePath);
     std::cout << "Successfully read HLO program from: " << hloProgramFilePath << std::endl;
   } catch (const std::exception& e) {
@@ -118,7 +114,7 @@ int main(int argc, char* argv[]) {
   // Try running the compiled executable
   std::cout << "Creating input buffer..." << std::endl;
   float host_input_data = 41.0f;
-  std::future<pjrt::Buffer> inputBuffer = client.createBufferFromData(host_input_data, device);
+  std::future<pjrt::Buffer> inputBuffer = client.transferToDevice(&host_input_data, {}, device);
   std::cout << "Input buffer created and transfer to device is complete." << std::endl;
   std::cout << "Executing compiled program..." << std::endl;
   std::future<pjrt::Buffer> outputBuffer = executable.execute(device, inputBuffer.get());

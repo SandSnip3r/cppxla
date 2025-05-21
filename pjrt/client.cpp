@@ -1,20 +1,6 @@
 #include "client.hpp"
-#include "common.hpp"
 #include "context.hpp"
-#include "detail/callbackUserData.hpp"
 #include "event.hpp"
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wchanges-meaning"
-#endif
-
-// Assume pjrt_c_api.h is in the same directory or an include path
-#include "pjrt_c_api.h"
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 
 #include <cstring>
 #include <stdexcept>
@@ -143,72 +129,6 @@ DeviceView Client::getFirstDevice() const {
   }
 
   return DeviceView(context_, ad_args.addressable_devices[0]);
-}
-
-std::future<Buffer> Client::createBufferFromData(float singleFloat, const DeviceView &device) const {
-  // Create Input Buffer from Host Data
-  PJRT_Client_BufferFromHostBuffer_Args bfhh_args;
-  bfhh_args.struct_size = PJRT_Client_BufferFromHostBuffer_Args_STRUCT_SIZE;
-  bfhh_args.extension_start = nullptr;
-  bfhh_args.client = client_;
-  bfhh_args.data = &singleFloat;
-  bfhh_args.type = PJRT_Buffer_Type_F32;
-
-  // For a scalar tensor<f32>, it's a rank-0 tensor.
-  // int64_t input_dims[] = {}; // Empty for rank-0
-  bfhh_args.dims = nullptr;
-  bfhh_args.num_dims = 0; 
-
-  bfhh_args.byte_strides = nullptr; // Dense layout
-  bfhh_args.num_byte_strides = 0;
-  bfhh_args.host_buffer_semantics = PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
-  bfhh_args.device = device.device_;
-  bfhh_args.memory = nullptr; // Use device's default memory
-  bfhh_args.device_layout = nullptr; // Use default layout
-
-  // These fields will be populated by the API call
-  bfhh_args.done_with_host_buffer = nullptr; 
-  bfhh_args.buffer = nullptr;
-
-  PJRT_Error* bfhh_error = context_.pjrtApi_->PJRT_Client_BufferFromHostBuffer(&bfhh_args);
-  if (bfhh_error != nullptr) {
-    throw std::runtime_error(freeErrorAndReturnString(context_, bfhh_error, "PJRT_Client_BufferFromHostBuffer failed."));
-  }
-
-  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_, bfhh_args.buffer));
-  return getFutureForEvent(context_, bfhh_args.done_with_host_buffer, std::move(callbackUserData));
-
-  // std::future<Buffer> future = callbackUserData->getFuture();
-  // {
-  //   PJRT_Event_OnReady_Args eventOnReadyArgs;
-  //   eventOnReadyArgs.struct_size = PJRT_Event_OnReady_Args_STRUCT_SIZE;
-  //   eventOnReadyArgs.extension_start = nullptr;
-  //   eventOnReadyArgs.event = bfhh_args.done_with_host_buffer;
-  //   eventOnReadyArgs.callback = &detail::eventReadyCallback<Buffer>;
-  //   // Pass ownership to PJRT. It will come back to us in our callback or we'll free it momentarily in the case of an error.
-  //   detail::CallbackUserData<Buffer> *callbackUserDataRawPtr = callbackUserData.release();
-  //   eventOnReadyArgs.user_arg = callbackUserDataRawPtr;
-
-  //   PJRT_Error *eventReadyError = context_.pjrtApi_->PJRT_Event_OnReady(&eventOnReadyArgs);
-  //   if (eventReadyError != nullptr) {
-  //     // TODO: Are we responsible for freeing our CallbackUserData? My current guess is that we are.
-  //     delete callbackUserDataRawPtr;
-  //     throw std::runtime_error(freeErrorAndReturnString(context_, eventReadyError, "PJRT_Event_OnReady failed."));
-  //   }
-  // }
-
-  // return future;
-  
-  // Buffer buffer(context_, bfhh_args.buffer);
-  // PJRT_Event* input_buffer_host_transfer_event = bfhh_args.done_with_host_buffer;
-  // if (input_buffer_host_transfer_event == nullptr) {
-  //   throw std::runtime_error("Allocated buffer on device, but have no event to wait on for completion of transfer");
-  // }
-  // Event transferCompletedEvent(context_, input_buffer_host_transfer_event);
-  // // Wait for the host-to-device transfer to complete for the input buffer
-  // transferCompletedEvent.wait();
-
-  // return buffer;
 }
 
 } // namespace pjrt

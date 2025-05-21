@@ -65,4 +65,20 @@ Context::~Context() {
   }
 }
 
+int Context::apiMajorVersion() const {
+  if (pjrtApi_ == nullptr) {
+    throw std::runtime_error("Cannot get API major version without Pjrt API");
+  }
+  return pjrtApi_->pjrt_api_version.major_version;
+}
+
+int Context::apiMinorVersion() const {
+  if (pjrtApi_ == nullptr) {
+    throw std::runtime_error("Cannot get API minor version without Pjrt API");
+  }
+  return pjrtApi_->pjrt_api_version.minor_version;
+}
+
+
+
 } // namespace pjrt

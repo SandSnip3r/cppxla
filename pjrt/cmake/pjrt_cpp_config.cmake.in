@@ -1,0 +1,11 @@
+# /usr/local/google/home/victorstone/cppxla/pjrt/cmake/pjrt_cpp_config.cmake.in
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+# find_dependency(Threads) # Example if your library has public dependencies
+
+if(NOT TARGET pjrt::pjrt_cpp)
+    include("${CMAKE_CURRENT_LIST_DIR}/pjrt_cpp_targets.cmake")
+endif()
+
+check_required_components(pjrt_cpp)

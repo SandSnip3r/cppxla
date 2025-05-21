@@ -2,11 +2,27 @@
 #define PJRT_CLIENT_HPP_
 
 #include "buffer.hpp"
+#include "common.hpp"
+#include "detail/callbackUserData.hpp"
+#include "detail/types.hpp"
 #include "deviceView.hpp"
 #include "loadedExecutable.hpp"
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wchanges-meaning"
+#endif
+
+// Assume pjrt_c_api.h is in the same directory or an include path
+#include "pjrt_c_api.h"
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include <future>
 #include <string>
+#include <vector>
 
 struct PJRT_Client;
 
@@ -24,13 +40,57 @@ public:
   LoadedExecutable compileFromStableHloString(const std::string &stableHloProgram) const;
   DeviceView getFirstDevice() const;
 
-  // Synchronously creates buffer and transfers it to device.
-  std::future<Buffer> createBufferFromData(float singleFloat, const DeviceView &device) const;
+  // Asynchronously transfers given data to the specified device.
+  // `shape` must stay alive until the future is ready.
+  template <typename T>
+  std::future<Buffer> transferToDevice(T *data, const std::vector<int64_t> &shape, const DeviceView &device) const;
 public:
 // private:
   const Context &context_;
   PJRT_Client *client_{nullptr};
 };
+
+template <typename T>
+std::future<Buffer> Client::transferToDevice(T *data, const std::vector<int64_t> &shape, const DeviceView &device) const {
+  // Create Input Buffer from Host Data
+  PJRT_Client_BufferFromHostBuffer_Args bfhh_args;
+  bfhh_args.struct_size = PJRT_Client_BufferFromHostBuffer_Args_STRUCT_SIZE;
+  bfhh_args.extension_start = nullptr;
+  bfhh_args.client = client_;
+  bfhh_args.data = data;
+  bfhh_args.type = detail::PjrtTypeFor<T>::kType;
+
+  if (shape.empty() && std::is_arithmetic_v<T>) { // Handle scalar specifically if dimensions is empty
+    bfhh_args.dims = nullptr;
+    bfhh_args.num_dims = 0; // PJRT typically represents scalars as rank-0 tensors
+  } else {
+    bfhh_args.dims = shape.data();
+    bfhh_args.num_dims = shape.size();
+  }
+  // For a scalar tensor<f32>, it's a rank-0 tensor.
+  // int64_t input_dims[] = {}; // Empty for rank-0
+  bfhh_args.dims = nullptr;
+  bfhh_args.num_dims = 0; 
+
+  bfhh_args.byte_strides = nullptr; // Dense layout
+  bfhh_args.num_byte_strides = 0;
+  bfhh_args.host_buffer_semantics = PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
+  bfhh_args.device = device.device_;
+  bfhh_args.memory = nullptr; // Use device's default memory
+  bfhh_args.device_layout = nullptr; // Use default layout
+
+  // These fields will be populated by the API call
+  bfhh_args.done_with_host_buffer = nullptr; 
+  bfhh_args.buffer = nullptr;
+
+  PJRT_Error* bfhh_error = context_.pjrtApi_->PJRT_Client_BufferFromHostBuffer(&bfhh_args);
+  if (bfhh_error != nullptr) {
+    throw std::runtime_error(freeErrorAndReturnString(context_, bfhh_error, "PJRT_Client_BufferFromHostBuffer failed."));
+  }
+
+  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_, bfhh_args.buffer));
+  return getFutureForEvent(context_, bfhh_args.done_with_host_buffer, std::move(callbackUserData));
+}
   
 } // namespace pjrt
 

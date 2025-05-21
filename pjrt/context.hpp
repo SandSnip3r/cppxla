@@ -10,6 +10,10 @@ class Context {
 public:
   Context();
   ~Context();
+
+  int apiMajorVersion() const;
+  int apiMinorVersion() const;
+
 public:
 // private:
   void *pluginHandle_{nullptr};
