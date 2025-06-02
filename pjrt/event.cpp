@@ -1,4 +1,3 @@
-#include "common.hpp"
 #include "context.hpp"
 #include "event.hpp"
 
@@ -25,7 +24,7 @@ Event::~Event() {
     destroyEvent();
   }
 }
-  
+
 void Event::wait() {
   if (event_) {
     PJRT_Event_Await_Args await_args;
@@ -34,7 +33,7 @@ void Event::wait() {
     await_args.event = event_;
     PJRT_Error* await_error = context_.pjrtApi_->PJRT_Event_Await(&await_args);
     if (await_error) {
-      throw std::runtime_error(freeErrorAndReturnString(context_, await_error, "PJRT_Event_Await failed."));
+      throw context_.convertPjrtErrorToException(await_error, "PJRT_Event_Await", __FILE__, __LINE__);
     }
 
     // Check the status of the execution from the event itself
@@ -44,7 +43,7 @@ void Event::wait() {
     event_error_args.event = event_;
     PJRT_Error* exec_status_error = context_.pjrtApi_->PJRT_Event_Error(&event_error_args); // This gets the error *from* the event
     if (exec_status_error) {
-      throw std::runtime_error(freeErrorAndReturnString(context_, exec_status_error, "PJRT_Event_Error failed."));
+      throw context_.convertPjrtErrorToException(exec_status_error, "PJRT_Event_Error", __FILE__, __LINE__);
     }
     destroyEvent();
   }
@@ -58,5 +57,5 @@ void Event::destroyEvent() {
   context_.pjrtApi_->PJRT_Event_Destroy(&event_destroy_args); // Error on event destroy is usually just logged
   event_ = nullptr;
 }
-  
+
 } // namespace pjrt

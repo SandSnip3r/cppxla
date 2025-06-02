@@ -1,4 +1,3 @@
-#include "common.hpp"
 #include "context.hpp"
 #include "detail/callbackUserData.hpp"
 #include "deviceView.hpp"
@@ -21,21 +20,44 @@
 
 namespace pjrt {
 
-LoadedExecutable::LoadedExecutable(const Context &context, PJRT_LoadedExecutable *executable) : context_(context), executable_(executable) {
-
+LoadedExecutable::LoadedExecutable(const Context &context, PJRT_LoadedExecutable *loadedExecutable) : context_(context), loadedExecutable_(loadedExecutable) {
+  // Query PJRT for the executable's output shape.
+  PJRT_LoadedExecutable_GetExecutable_Args args;
+  args.struct_size = PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE;
+  args.loaded_executable = loadedExecutable_;
+  PJRT_Error *error = context_.pjrtApi_->PJRT_LoadedExecutable_GetExecutable(&args);
+  if (error != nullptr) {
+    throw context_.convertPjrtErrorToException(error, "PJRT_LoadedExecutable_GetExecutable", __FILE__, __LINE__);
+  }
+  executable_ = Executable(context, args.executable);
 }
 
 LoadedExecutable::~LoadedExecutable() {
-  if (!executable_) {
+  if (!loadedExecutable_) {
     return;
   }
   PJRT_LoadedExecutable_Destroy_Args exec_destroy_args;
   exec_destroy_args.struct_size = PJRT_LoadedExecutable_Destroy_Args_STRUCT_SIZE;
   exec_destroy_args.extension_start = nullptr;
-  exec_destroy_args.executable = executable_;
+  exec_destroy_args.executable = loadedExecutable_;
   PJRT_Error* exec_destroy_error = context_.pjrtApi_->PJRT_LoadedExecutable_Destroy(&exec_destroy_args);
-  if (exec_destroy_error) {
-    throw std::runtime_error(freeErrorAndReturnString(context_, exec_destroy_error, "PJRT_LoadedExecutable_Destroy failed."));
+  if (exec_destroy_error != nullptr) {
+    const pjrt::Exception ex = context_.convertPjrtErrorToException(exec_destroy_error, "PJRT_LoadedExecutable_Destroy", __FILE__, __LINE__);
+    std::cerr << "pjrt::LoadedExecutable destructor failed to destroy PJRT_LoadedExecutable: \"" << ex.what() << "\"" << std::endl;
+  }
+}
+
+void LoadedExecutable::destroy() {
+  if (!loadedExecutable_) {
+    return;
+  }
+  PJRT_LoadedExecutable_Destroy_Args exec_destroy_args;
+  exec_destroy_args.struct_size = PJRT_LoadedExecutable_Destroy_Args_STRUCT_SIZE;
+  exec_destroy_args.extension_start = nullptr;
+  exec_destroy_args.executable = loadedExecutable_;
+  PJRT_Error* exec_destroy_error = context_.pjrtApi_->PJRT_LoadedExecutable_Destroy(&exec_destroy_args);
+  if (exec_destroy_error != nullptr) {
+    throw context_.convertPjrtErrorToException(exec_destroy_error, "PJRT_LoadedExecutable_Destroy", __FILE__, __LINE__);
   }
 }
 
@@ -56,7 +78,7 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
   PJRT_LoadedExecutable_Execute_Args exec_args;
   exec_args.struct_size = PJRT_LoadedExecutable_Execute_Args_STRUCT_SIZE;
   exec_args.extension_start = nullptr;
-  exec_args.executable = executable_;
+  exec_args.executable = loadedExecutable_;
   exec_args.options = &exec_options;
 
   // Argument lists: Our program takes 1 argument. We are executing on 1 device.
@@ -67,7 +89,7 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
   exec_args.num_args = 1;    // The @main function has one argument %arg0
 
   std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_));
-  
+
   // Output lists: Our program has 1 output.
   // The API will populate the PJRT_Buffer* in this array.
   PJRT_Buffer** output_lists_for_all_devices[1];    // Array of lists of outputs
@@ -81,11 +103,11 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
 
   PJRT_Error* exec_error = context_.pjrtApi_->PJRT_LoadedExecutable_Execute(&exec_args);
   if (exec_error != nullptr) {
-    throw std::runtime_error(freeErrorAndReturnString(context_, exec_error, "PJRT_LoadedExecutable_Execute failed."));
+    throw context_.convertPjrtErrorToException(exec_error, "PJRT_LoadedExecutable_Execute", __FILE__, __LINE__);
   }
 
   return getFutureForEvent(context_, device_complete_event_handles[0], std::move(callbackUserData));
 }
 
-  
+
 } // namespace pjrt

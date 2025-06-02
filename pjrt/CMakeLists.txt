@@ -5,14 +5,16 @@ target_sources(pjrt_cpp PRIVATE
     buffer.hpp
     client.cpp
     client.hpp
-    common.cpp
-    common.hpp
     context.cpp
     context.hpp
     deviceView.cpp
     deviceView.hpp
     event.cpp
     event.hpp
+    exception.cpp
+    exception.hpp
+    executable.cpp
+    executable.hpp
     loadedExecutable.cpp
     loadedExecutable.hpp
     detail/callbackUserData.cpp

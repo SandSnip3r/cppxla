@@ -14,6 +14,8 @@
 
 #include <dlfcn.h> // For dlopen, dlsym, dlclose, dlerror
 
+#include <cassert>
+#include <iostream>
 #include <stdexcept>
 
 #ifndef PJRT_PLUGIN_PATH
@@ -54,14 +56,36 @@ Context::Context() {
   if (!pjrtApi_) {
     throw std::runtime_error("Call to GetPjrtApi_func() returned a null PJRT_Api pointer.");
   }
+
+  PJRT_Plugin_Initialize_Args pluginInitializeArgs;
+  pluginInitializeArgs.struct_size = PJRT_Plugin_Initialize_Args_STRUCT_SIZE;
+  pluginInitializeArgs.extension_start = nullptr;
+  PJRT_Error* initError = pjrtApi_->PJRT_Plugin_Initialize(&pluginInitializeArgs);
+  if (initError != nullptr) {
+    throw convertPjrtErrorToException(initError, "PJRT_Plugin_Initialize", __FILE__, __LINE__);
+  }
 }
 
 Context::~Context() {
   if (pluginHandle_ != nullptr) {
     // Close the plugin
+    if (dlclose(pluginHandle_) == 0) {
+      // Success
+      pluginHandle_ = nullptr;
+    } else {
+      // dlclose may fail, we choose to do nothing about that failure in the destructor. If you need to handle the failure, call destroy() before destruction.
+      std::cerr << "dlclose of plugin failed: \"" << dlerror() << "\"" << std::endl;
+    }
+  }
+}
+
+void Context::destroy() {
+  if (pluginHandle_ != nullptr) {
+    // Close the plugin
     if (dlclose(pluginHandle_) != 0) {
       throw std::runtime_error("Error closing PJRT plugin: "+std::string(dlerror()));
     }
+    pluginHandle_ = nullptr;
   }
 }
 
@@ -79,6 +103,38 @@ int Context::apiMinorVersion() const {
   return pjrtApi_->pjrt_api_version.minor_version;
 }
 
+// For C++20 or newer, replace this with a function which uses std::source_location.
+Exception Context::convertPjrtErrorToException(PJRT_Error *error, std::string_view pjrtFunctionName, std::string_view file, int lineNumber) const {
+  assert(((void)"Given null error", error != nullptr));
 
+  std::string sourceLocation{pjrtFunctionName};
+  sourceLocation += " failed at ";
+  sourceLocation += file;
+  sourceLocation += ":";
+  sourceLocation += std::to_string(lineNumber);
+  sourceLocation += ".";
+
+  /* Extract the error message from the API. */
+  PJRT_Error_Message_Args error_message_args;
+  error_message_args.struct_size = PJRT_Error_Message_Args_STRUCT_SIZE;
+  error_message_args.extension_start = nullptr;
+  error_message_args.error = error;
+  pjrtApi_->PJRT_Error_Message(&error_message_args);
+
+  /* Note that PJRT_Error_Message_Args::message and                                   */
+  /* PJRT_Error_Message_Args::message_size's lifetimes match that of the              */
+  /* actual PJRT_Error. Once the error is destroyed, we must not access these fields. */
+  const std::string errorMessage = sourceLocation + " Error: " +
+      std::string(error_message_args.message, error_message_args.message_size);
+
+  /* Destroy the PJRT_Error. */
+  PJRT_Error_Destroy_Args destroy_error_args;
+  destroy_error_args.struct_size = PJRT_Error_Destroy_Args_STRUCT_SIZE;
+  destroy_error_args.extension_start = nullptr;
+  destroy_error_args.error = error;
+  pjrtApi_->PJRT_Error_Destroy(&destroy_error_args);
+
+  return pjrt::Exception(errorMessage);
+}
 
 } // namespace pjrt

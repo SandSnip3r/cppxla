@@ -6,7 +6,7 @@ struct PJRT_Event;
 namespace pjrt {
 
 class Context;
-  
+
 class Event {
 public:
   Event(const Context &context, PJRT_Event *event);
@@ -19,7 +19,7 @@ public:
 
   void destroyEvent();
 };
-  
+
 } // namespace pjrt
 
 #endif // PJRT_EVENT_HPP_

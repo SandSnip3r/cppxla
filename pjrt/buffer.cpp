@@ -1,5 +1,4 @@
 #include "buffer.hpp"
-#include "common.hpp"
 #include "context.hpp"
 #include "detail/callbackUserData.hpp"
 #include "event.hpp"
@@ -30,16 +29,35 @@ Buffer::Buffer(Buffer &&other) : context_(other.context_), buffer_(other.buffer_
 }
 
 Buffer::~Buffer() {
-  if (buffer_) {
-    PJRT_Buffer_Destroy_Args destroy_args;
-    destroy_args.struct_size = PJRT_Buffer_Destroy_Args_STRUCT_SIZE;
-    destroy_args.extension_start = nullptr;
-    destroy_args.buffer = buffer_;
-    PJRT_Error* error = context_.pjrtApi_->PJRT_Buffer_Destroy(&destroy_args);
-    if (error) {
-      throw std::runtime_error(freeErrorAndReturnString(context_, error, "Failed to destroy buffer"));
-    }
+  if (buffer_ == nullptr) {
+    return;
   }
+  PJRT_Buffer_Destroy_Args destroy_args;
+  destroy_args.struct_size = PJRT_Buffer_Destroy_Args_STRUCT_SIZE;
+  destroy_args.extension_start = nullptr;
+  destroy_args.buffer = buffer_;
+  PJRT_Error* pjrtError = context_.pjrtApi_->PJRT_Buffer_Destroy(&destroy_args);
+  if (pjrtError == nullptr) {
+    return;
+  }
+  // PJRT_Buffer_Destroy may fail, we choose to do nothing about that failure in the destructor. If you need to handle the failure, call destroy() before destruction.
+  const pjrt::Exception ex = context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_Destroy", __FILE__, __LINE__);
+  std::cerr << "pjrt::Buffer destructor failed to destroy PJRT_Buffer: \"" << ex.what() << "\"" << std::endl;
+}
+
+void Buffer::destroy() {
+  if (buffer_ == nullptr) {
+    return;
+  }
+  PJRT_Buffer_Destroy_Args destroy_args;
+  destroy_args.struct_size = PJRT_Buffer_Destroy_Args_STRUCT_SIZE;
+  destroy_args.extension_start = nullptr;
+  destroy_args.buffer = buffer_;
+  PJRT_Error* pjrtError = context_.pjrtApi_->PJRT_Buffer_Destroy(&destroy_args);
+  if (pjrtError == nullptr) {
+    return;
+  }
+  throw context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_Destroy", __FILE__, __LINE__);
 }
 
 std::future<float> Buffer::toHost() {
@@ -54,11 +72,11 @@ std::future<float> Buffer::toHost() {
   bthh_args.host_layout = nullptr; // Use default/source layout
   // bthh_args.event will be populated
 
-  PJRT_Error* bthh_error = context_.pjrtApi_->PJRT_Buffer_ToHostBuffer(&bthh_args);
-  if (bthh_error != nullptr) {
-    // TODO: The PJRT documentation does not say whether or not we need to free the event in the case of an error. My current guess is that we do not.
-    throw std::runtime_error(freeErrorAndReturnString(context_, bthh_error, "PJRT_Buffer_ToHostBuffer failed."));
+  PJRT_Error* pjrtError = context_.pjrtApi_->PJRT_Buffer_ToHostBuffer(&bthh_args);
+  if (pjrtError != nullptr) {
+    throw context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_ToHostBuffer", __FILE__, __LINE__);
   }
+  // TODO: The PJRT documentation does not say whether or not we need to free the event in the case of an error. My current guess is that we do not.
 
   return getFutureForEvent(context_, bthh_args.event, std::move(callbackUserData));
 }

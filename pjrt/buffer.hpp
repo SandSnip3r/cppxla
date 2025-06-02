@@ -15,7 +15,11 @@ public:
   Buffer(const Context &context, PJRT_Buffer *buffer);
   Buffer(Buffer &&other);
 
+  // Attempts to clean up resources, will not throw. If cleanup fails, resources may be leaked.
   ~Buffer();
+
+  // Cleanup resources held. May throw.
+  void destroy();
 
   std::future<float> toHost();
 public:
@@ -23,7 +27,7 @@ public:
   const Context &context_;
   PJRT_Buffer *buffer_{nullptr};
 };
-  
+
 } // namespace pjrt
 
 #endif // PJRT_BUFFER_HPP_

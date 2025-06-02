@@ -87,6 +87,8 @@ void executeAndVerify(pjrt::DeviceView &device, pjrt::Client &client, pjrt::Load
 }
 
 int main(int argc, char* argv[]) {
+  (void)argc;
+  (void)argv;
   pjrt::Context context;
   std::cout << "Successfully initialized PJRT API." << std::endl;
   performVersionCheck(context);
@@ -113,8 +115,9 @@ int main(int argc, char* argv[]) {
 
   // Try running the compiled executable
   std::cout << "Creating input buffer..." << std::endl;
-  float host_input_data = 41.0f;
-  std::future<pjrt::Buffer> inputBuffer = client.transferToDevice(&host_input_data, {}, device);
+  std::vector<float> host_input_data(128, 0.0f);
+  std::vector<int64_t> shape = {128};
+  std::future<pjrt::Buffer> inputBuffer = client.transferToDevice(host_input_data.data(), shape, device);
   std::cout << "Input buffer created and transfer to device is complete." << std::endl;
   std::cout << "Executing compiled program..." << std::endl;
   std::future<pjrt::Buffer> outputBuffer = executable.execute(device, inputBuffer.get());

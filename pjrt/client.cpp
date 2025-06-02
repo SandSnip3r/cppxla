@@ -28,17 +28,17 @@ Client::Client(const Context &context) : context_(context) {
   PJRT_Error *clientCreateError = context_.pjrtApi_->PJRT_Client_Create(&clientCreateArgs);
 
   if (clientCreateError != nullptr) {
-    throw std::runtime_error(freeErrorAndReturnString(context_, clientCreateError, "PJRT_Client_Create failed."));
+    throw context_.convertPjrtErrorToException(clientCreateError, "PJRT_Client_Create", __FILE__, __LINE__);
   }
 
   client_ = clientCreateArgs.client; // Successfully created client is in the args struct
   if (!client_) {
-    throw std::runtime_error("PJRT_Client_Create reported success, but the client pointer is null.");
+    throw pjrt::Exception("PJRT_Client_Create reported success, but the client pointer is null.");
   }
 }
 
 Client::~Client() {
-  if (!client_) {
+  if (client_ == nullptr) {
     return;
   }
 
@@ -48,8 +48,25 @@ Client::~Client() {
   client_destroy_args.extension_start = nullptr;
   client_destroy_args.client = client_;
   PJRT_Error* clientDestroyError = context_.pjrtApi_->PJRT_Client_Destroy(&client_destroy_args);
-  if (clientDestroyError) {
-    throw std::runtime_error(freeErrorAndReturnString(context_, clientDestroyError, "PJRT_Client_Destroy failed."));
+  if (clientDestroyError != nullptr) {
+    const pjrt::Exception ex = context_.convertPjrtErrorToException(clientDestroyError, "PJRT_Client_Destroy", __FILE__, __LINE__);
+    std::cerr << "pjrt::Client destructor failed to destroy PJRT_Client: \"" << ex.what() << "\"" << std::endl;
+  }
+}
+
+void Client::destroy() {
+  if (client_ == nullptr) {
+    return;
+  }
+
+  // Destroy the PJRT Client when done.
+  PJRT_Client_Destroy_Args client_destroy_args;
+  client_destroy_args.struct_size = PJRT_Client_Destroy_Args_STRUCT_SIZE;
+  client_destroy_args.extension_start = nullptr;
+  client_destroy_args.client = client_;
+  PJRT_Error* clientDestroyError = context_.pjrtApi_->PJRT_Client_Destroy(&client_destroy_args);
+  if (clientDestroyError != nullptr) {
+    throw context_.convertPjrtErrorToException(clientDestroyError, "PJRT_Client_Destroy", __FILE__, __LINE__);
   }
 }
 
@@ -61,7 +78,7 @@ std::string Client::platformName() const {
 
   PJRT_Error* platform_name_error = context_.pjrtApi_->PJRT_Client_PlatformName(&platform_name_args);
   if (platform_name_error != nullptr) {
-    throw std::runtime_error(freeErrorAndReturnString(context_, platform_name_error, "PJRT_Client_PlatformName failed."));
+    throw context_.convertPjrtErrorToException(platform_name_error, "PJRT_Client_PlatformName", __FILE__, __LINE__);
   }
   return std::string(platform_name_args.platform_name, platform_name_args.platform_name_size);
 }
@@ -78,7 +95,7 @@ LoadedExecutable Client::compileFromStableHloString(const std::string &stableHlo
   program_desc.extension_start = nullptr;
   program_desc.code = hlo_program_buffer.data(); // data() from vector is char*
   program_desc.code_size = hlo_program_buffer.size(); // Use the actual size of the content in the vector
-  
+
   const char* format_str = "mlir"; // Your program is in MHLO MLIR text format
   program_desc.format = format_str;
   program_desc.format_size = strlen(format_str);
@@ -100,7 +117,7 @@ LoadedExecutable Client::compileFromStableHloString(const std::string &stableHlo
   PJRT_Error* compile_error = context_.pjrtApi_->PJRT_Client_Compile(&compile_args);
 
   if (compile_error != nullptr) {
-    throw std::runtime_error(freeErrorAndReturnString(context_, compile_error, "PJRT_Client_Compile failed."));
+    throw context_.convertPjrtErrorToException(compile_error, "PJRT_Client_Compile", __FILE__, __LINE__);
   }
 
   PJRT_LoadedExecutable *compiledExecutable = compile_args.executable;
@@ -121,11 +138,11 @@ DeviceView Client::getFirstDevice() const {
 
   PJRT_Error* ad_error = context_.pjrtApi_->PJRT_Client_AddressableDevices(&ad_args);
   if (ad_error != nullptr) {
-    throw std::runtime_error(freeErrorAndReturnString(context_, ad_error, "PJRT_Client_AddressableDevices failed."));
+    throw context_.convertPjrtErrorToException(ad_error, "PJRT_Client_AddressableDevices", __FILE__, __LINE__);
   }
 
   if (ad_args.num_addressable_devices == 0) {
-    throw std::runtime_error("No addressable devices found.");
+    throw pjrt::Exception("No addressable devices found.");
   }
 
   return DeviceView(context_, ad_args.addressable_devices[0]);

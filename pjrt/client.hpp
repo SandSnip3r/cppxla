@@ -2,7 +2,6 @@
 #define PJRT_CLIENT_HPP_
 
 #include "buffer.hpp"
-#include "common.hpp"
 #include "detail/callbackUserData.hpp"
 #include "detail/types.hpp"
 #include "deviceView.hpp"
@@ -34,6 +33,8 @@ class Client {
 public:
   Client(const Context &context);
   ~Client();
+
+  void destroy();
 
   std::string platformName() const;
 
@@ -67,10 +68,6 @@ std::future<Buffer> Client::transferToDevice(T *data, const std::vector<int64_t>
     bfhh_args.dims = shape.data();
     bfhh_args.num_dims = shape.size();
   }
-  // For a scalar tensor<f32>, it's a rank-0 tensor.
-  // int64_t input_dims[] = {}; // Empty for rank-0
-  bfhh_args.dims = nullptr;
-  bfhh_args.num_dims = 0; 
 
   bfhh_args.byte_strides = nullptr; // Dense layout
   bfhh_args.num_byte_strides = 0;
@@ -85,13 +82,13 @@ std::future<Buffer> Client::transferToDevice(T *data, const std::vector<int64_t>
 
   PJRT_Error* bfhh_error = context_.pjrtApi_->PJRT_Client_BufferFromHostBuffer(&bfhh_args);
   if (bfhh_error != nullptr) {
-    throw std::runtime_error(freeErrorAndReturnString(context_, bfhh_error, "PJRT_Client_BufferFromHostBuffer failed."));
+    throw context_.convertPjrtErrorToException(bfhh_error, "PJRT_Client_BufferFromHostBuffer", __FILE__, __LINE__);
   }
 
   std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_, bfhh_args.buffer));
   return getFutureForEvent(context_, bfhh_args.done_with_host_buffer, std::move(callbackUserData));
 }
-  
+
 } // namespace pjrt
 
 #endif // PJRT_CLIENT_HPP_

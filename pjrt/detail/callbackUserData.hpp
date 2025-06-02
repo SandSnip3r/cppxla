@@ -15,6 +15,7 @@
 #pragma GCC diagnostic pop
 #endif
 
+#include <cassert>
 #include <future>
 #include <iostream>
 
@@ -53,25 +54,19 @@ private:
 
 template <typename DataType>
 void eventReadyCallback(PJRT_Error *error, void *userArgment) {
-  if (userArgment != nullptr) {
-    CallbackUserData<DataType> *callbackUserData = static_cast<CallbackUserData<DataType>*>(userArgment);
+  assert(((void)"User argument is null", userArgment != nullptr));
 
-    if (error != nullptr) {
-      callbackUserData->setException(std::make_exception_ptr(std::runtime_error(freeErrorAndReturnString(callbackUserData->getContext(), error, "PJRT error when calling user-provided callback"))));
-    } else {
-      // The event has completed, fulfill the promise.
-      callbackUserData->fulfill();
-    }
-
-    // Free the data.
-    delete callbackUserData;
+  CallbackUserData<DataType> *callbackUserData = static_cast<CallbackUserData<DataType>*>(userArgment);
+  if (error == nullptr) {
+    // The event has completed without error, fulfill the promise.
+    callbackUserData->fulfill();
   } else {
-    std::cout << "Given null user argument!" << std::endl;
-    if (error != nullptr) {
-      // We have no way to get the error back to the user.
-      throw std::runtime_error("PJRT_Event_OnReady called our callback with an error, but did not provide us with our user argument");
-    }
+    // An error occurred.
+    callbackUserData->setException(std::make_exception_ptr(callbackUserData->getContext().convertPjrtErrorToException(error, "PJRT error when calling user-provided callback", __FILE__, __LINE__)));
   }
+
+  // Free the data.
+  delete callbackUserData;
 }
 
 template <typename DataType>
@@ -91,12 +86,12 @@ std::future<DataType> getFutureForEvent(const Context &context, PJRT_Event *even
     if (eventReadyError != nullptr) {
       // TODO: Are we responsible for freeing our CallbackUserData? My current guess is that we are.
       delete callbackUserDataRawPtr;
-      throw std::runtime_error(freeErrorAndReturnString(context, eventReadyError, "PJRT_Event_OnReady failed."));
+      throw context.convertPjrtErrorToException(eventReadyError, "PJRT_Event_OnReady", __FILE__, __LINE__);
     }
   }
   return future;
 }
-  
+
 } // namespace pjrt::detail
 
 #endif // PJRT_DETAIL_CALLBACK_USER_DATA_HPP_

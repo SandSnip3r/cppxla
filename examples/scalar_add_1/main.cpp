@@ -87,6 +87,8 @@ void executeAndVerify(pjrt::DeviceView &device, pjrt::Client &client, pjrt::Load
 }
 
 int main(int argc, char* argv[]) {
+  (void)argc;
+  (void)argv;
   pjrt::Context context;
   std::cout << "Successfully initialized PJRT API." << std::endl;
   performVersionCheck(context);

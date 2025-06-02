@@ -37,7 +37,7 @@ constexpr PJRT_Buffer_Type TypeToPjrtBufferType() {
   static_assert(!std::is_same_v<PjrtTypeFor<T>, PjrtTypeFor<void>>, "Unsupported type for PJRT buffer. Please add a specialization to PjrtTypeFor.");
   return PjrtTypeFor<T>::kType;
 }
-  
+
 } // namespace pjrt::detail
 
 #endif // PJRT_TYPES_HPP_
