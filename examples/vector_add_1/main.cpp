@@ -1,25 +1,23 @@
 #include "pjrt/client.hpp"
 #include "pjrt/context.hpp"
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wchanges-meaning"
+#endif
+// Assume pjrt_c_api.h is in the same directory or an include path
+#include "pjrt_c_api.h"
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include <cstring>
+#include <dlfcn.h> // For dlopen, dlsym, dlclose, dlerror
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <dlfcn.h> // For dlopen, dlsym, dlclose, dlerror
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wchanges-meaning"
-#endif
-
-// Assume pjrt_c_api.h is in the same directory or an include path
-#include "pjrt_c_api.h"
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 
 // Define the function pointer type for GetPjrtApi
 typedef const PJRT_Api* (*GetPjrtApi_Func_Type)();
@@ -65,17 +63,31 @@ int main(int argc, char* argv[]) {
   std::cout << "Creating input buffer..." << std::endl;
   std::vector<float> host_input_data(128, 0.0f);
   std::vector<int64_t> shape = {128};
-  std::future<pjrt::Buffer> inputBuffer = client.transferToDevice(host_input_data.data(), shape, device);
-  inputBuffer.wait();
+  std::future<pjrt::Buffer> futureInputBuffer = client.transferToDevice(host_input_data.data(), shape, device);
+  futureInputBuffer.wait();
+  pjrt::Buffer inputBuffer = futureInputBuffer.get(); // Get the buffer object
+  std::cout << "Input buffer dimensions: {";
+  const auto& input_dims = inputBuffer.dimensions();
+  for (size_t i = 0; i < input_dims.size(); ++i) {
+    std::cout << input_dims[i] << (i == input_dims.size() - 1 ? "" : ", ");
+  }
+  std::cout << "}" << std::endl;
   std::cout << "Input buffer created and transfer to device is complete." << std::endl << std::endl;
 
   std::cout << "Executing compiled program..." << std::endl;
-  std::future<pjrt::Buffer> outputBuffer = loadedExecutable.execute(device, inputBuffer.get());
-  outputBuffer.wait();
+  std::future<pjrt::Buffer> futureOutputBuffer = loadedExecutable.execute(device, inputBuffer);
+  futureOutputBuffer.wait();
+  pjrt::Buffer outputBuffer = futureOutputBuffer.get(); // Get the buffer object
+  std::cout << "Output buffer dimensions: {";
+  const auto& output_dims = outputBuffer.dimensions();
+  for (size_t i = 0; i < output_dims.size(); ++i) {
+    std::cout << output_dims[i] << (i == output_dims.size() - 1 ? "" : ", ");
+  }
+  std::cout << "}" << std::endl;
   std::cout << "Execution complete" << std::endl << std::endl;
 
   std::cout << "Transferring result to host" << std::endl;
-  std::future<float> outputFuture = outputBuffer.get().toHost<float>();
+  std::future<float> outputFuture = outputBuffer.toHost<float>();
   float result = outputFuture.get();
   std::cout << "Output value: " << result << std::endl;
 

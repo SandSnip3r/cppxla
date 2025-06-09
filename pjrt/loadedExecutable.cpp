@@ -17,6 +17,7 @@
 #endif
 
 #include <stdexcept>
+#include <vector>
 
 namespace pjrt {
 
@@ -82,19 +83,17 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
   exec_args.options = &exec_options;
 
   // Argument lists: Our program takes 1 argument. We are executing on 1 device.
-  PJRT_Buffer* actual_input_buffers_for_device0[] = {inputBuffer.buffer_};
+  PJRT_Buffer* actual_input_buffers_for_device0[] = {inputBuffer.c_buffer()}; // Use getter
   PJRT_Buffer* const* argument_lists_for_all_devices[] = {actual_input_buffers_for_device0}; // Array of lists of args
   exec_args.argument_lists = argument_lists_for_all_devices;
   exec_args.num_devices = 1; // We are launching on a single device instance here
   exec_args.num_args = 1;    // The @main function has one argument %arg0
 
-  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_));
-
-  // Output lists: Our program has 1 output.
-  // The API will populate the PJRT_Buffer* in this array.
-  PJRT_Buffer** output_lists_for_all_devices[1];    // Array of lists of outputs
-  output_lists_for_all_devices[0] = &callbackUserData->getData().buffer_;
-  exec_args.output_lists = output_lists_for_all_devices;
+  // Output setup
+  PJRT_Buffer* raw_output_c_buffer = nullptr;
+  PJRT_Buffer** output_list_for_device0[1];
+  output_list_for_device0[0] = &raw_output_c_buffer;
+  exec_args.output_lists = output_list_for_device0;
 
   // Device complete events: one event per device in the launch
   PJRT_Event* device_complete_event_handles[1];
@@ -103,8 +102,51 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
 
   PJRT_Error* exec_error = context_.pjrtApi_->PJRT_LoadedExecutable_Execute(&exec_args);
   if (exec_error != nullptr) {
+    // It's possible that raw_output_c_buffer is populated even on error.
+    // However, PJRT_Buffer_Destroy requires a valid PJRT_Buffer*.
+    // If exec_error is not null, raw_output_c_buffer might not be valid or might be partially initialized.
+    // The PJRT spec is unclear on whether PJRT_Buffer_Destroy should be called on outputs if Execute fails.
+    // For now, we assume the C API handles cleanup of output buffers if Execute itself fails.
     throw context_.convertPjrtErrorToException(exec_error, "PJRT_LoadedExecutable_Execute", __FILE__, __LINE__);
   }
+
+  // Get the output buffer dimensions using raw_output_c_buffer
+  PJRT_Buffer_Dimensions_Args dim_args;
+  dim_args.struct_size = PJRT_Buffer_Dimensions_Args_STRUCT_SIZE;
+  dim_args.extension_start = nullptr;
+  dim_args.buffer = raw_output_c_buffer; // Use the C buffer pointer populated by Execute
+  dim_args.dims = nullptr;
+  dim_args.num_dims = 0;
+
+  // TODO: The PJRT_Buffer_Dimensions call itself might return an error in dim_args.error.
+  // This needs to be checked.
+  context_.pjrtApi_->PJRT_Buffer_Dimensions(&dim_args);
+  if (dim_args.error != nullptr) {
+    // If getting dimensions fails, we might have a valid PJRT_Buffer that needs destroying.
+    // This is tricky. For now, throw, assuming the buffer might be in an inconsistent state.
+    // A more robust solution might involve trying to destroy raw_output_c_buffer if it's non-null.
+    throw context_.convertPjrtErrorToException(dim_args.error, "PJRT_Buffer_Dimensions (getting rank)", __FILE__, __LINE__);
+  }
+
+  size_t rank = dim_args.num_dims;
+  std::vector<int64_t> actual_dimensions(rank);
+
+  if (rank > 0) {
+    dim_args.dims = actual_dimensions.data();
+    dim_args.num_dims = rank; // Pass the capacity
+    context_.pjrtApi_->PJRT_Buffer_Dimensions(&dim_args);
+    if (dim_args.error != nullptr) {
+      // Similar to above, error handling for partially created buffers is complex.
+      throw context_.convertPjrtErrorToException(dim_args.error, "PJRT_Buffer_Dimensions (getting dims)", __FILE__, __LINE__);
+    }
+  }
+
+  // Construct the final Buffer object
+  pjrt::Buffer final_output_buffer(context_, raw_output_c_buffer, std::move(actual_dimensions));
+
+  // Create CallbackUserData with the fully formed Buffer
+  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData =
+      std::make_unique<detail::CallbackUserData<Buffer>>(context_, std::move(final_output_buffer));
 
   return context_.getFutureForEvent(device_complete_event_handles[0], std::move(callbackUserData));
 }

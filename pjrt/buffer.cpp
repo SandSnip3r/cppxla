@@ -19,11 +19,11 @@
 
 namespace pjrt {
 
-Buffer::Buffer(const Context &context) : context_(context) {}
+Buffer::Buffer(const Context &context) : context_(context), dimensions_() {}
 
-Buffer::Buffer(const Context &context, PJRT_Buffer *buffer) : context_(context), buffer_(buffer) {}
+Buffer::Buffer(const Context &context, PJRT_Buffer *buffer, std::vector<int64_t>&& dims) : context_(context), buffer_(buffer), dimensions_(std::move(dims)) {}
 
-Buffer::Buffer(Buffer &&other) : context_(other.context_), buffer_(other.buffer_) {
+Buffer::Buffer(Buffer &&other) : context_(other.context_), buffer_(other.buffer_), dimensions_(std::move(other.dimensions_)) {
   // Set source's buffer to nullptr so that it does not try to free that resource on destruction.
   other.buffer_ = nullptr;
 }
