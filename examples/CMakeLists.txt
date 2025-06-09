@@ -1,2 +1,2 @@
-add_subdirectory(scalar_add_1)
+# add_subdirectory(scalar_add_1)
 add_subdirectory(vector_add_1)

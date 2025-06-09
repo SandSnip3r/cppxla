@@ -60,25 +60,4 @@ void Buffer::destroy() {
   throw context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_Destroy", __FILE__, __LINE__);
 }
 
-std::future<float> Buffer::toHost() {
-  std::unique_ptr<detail::CallbackUserData<float>> callbackUserData = std::make_unique<detail::CallbackUserData<float>>(context_);
-
-  PJRT_Buffer_ToHostBuffer_Args bthh_args;
-  bthh_args.struct_size = PJRT_Buffer_ToHostBuffer_Args_STRUCT_SIZE;
-  bthh_args.extension_start = nullptr;
-  bthh_args.src = buffer_;
-  bthh_args.dst = &callbackUserData->getData();
-  bthh_args.dst_size = sizeof(float); // Size of our host buffer
-  bthh_args.host_layout = nullptr; // Use default/source layout
-  // bthh_args.event will be populated
-
-  PJRT_Error* pjrtError = context_.pjrtApi_->PJRT_Buffer_ToHostBuffer(&bthh_args);
-  if (pjrtError != nullptr) {
-    throw context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_ToHostBuffer", __FILE__, __LINE__);
-  }
-  // TODO: The PJRT documentation does not say whether or not we need to free the event in the case of an error. My current guess is that we do not.
-
-  return getFutureForEvent(context_, bthh_args.event, std::move(callbackUserData));
-}
-
 } // namespace pjrt

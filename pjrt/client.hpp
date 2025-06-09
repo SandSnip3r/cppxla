@@ -86,7 +86,7 @@ std::future<Buffer> Client::transferToDevice(T *data, const std::vector<int64_t>
   }
 
   std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_, bfhh_args.buffer));
-  return getFutureForEvent(context_, bfhh_args.done_with_host_buffer, std::move(callbackUserData));
+  return context_.getFutureForEvent(bfhh_args.done_with_host_buffer, std::move(callbackUserData));
 }
 
 } // namespace pjrt

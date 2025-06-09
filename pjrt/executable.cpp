@@ -55,7 +55,8 @@ Executable& Executable::operator=(Executable &&other) {
 }
 
 size_t Executable::getNumOutputs() {
-
+  // TODO:
+  return 0;
 }
 
 } // namespace pjrt

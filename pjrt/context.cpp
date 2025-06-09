@@ -57,6 +57,14 @@ Context::Context() {
     throw std::runtime_error("Call to GetPjrtApi_func() returned a null PJRT_Api pointer.");
   }
 
+  // Do a quick version check.
+  if (pjrtApi_->pjrt_api_version.major_version != PJRT_API_MAJOR) {
+    throw pjrt::Exception("PJRT API major version mismatch. Expected " + std::to_string(PJRT_API_MAJOR) + ", got " + std::to_string(pjrtApi_->pjrt_api_version.major_version));
+  }
+  if (pjrtApi_->pjrt_api_version.minor_version != PJRT_API_MINOR) {
+    throw pjrt::Exception("PJRT API minor version mismatch. Expected " + std::to_string(PJRT_API_MINOR) + ", got " + std::to_string(pjrtApi_->pjrt_api_version.minor_version));
+  }
+
   PJRT_Plugin_Initialize_Args pluginInitializeArgs;
   pluginInitializeArgs.struct_size = PJRT_Plugin_Initialize_Args_STRUCT_SIZE;
   pluginInitializeArgs.extension_start = nullptr;

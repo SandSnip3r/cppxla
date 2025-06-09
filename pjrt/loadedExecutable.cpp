@@ -106,7 +106,7 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
     throw context_.convertPjrtErrorToException(exec_error, "PJRT_LoadedExecutable_Execute", __FILE__, __LINE__);
   }
 
-  return getFutureForEvent(context_, device_complete_event_handles[0], std::move(callbackUserData));
+  return context_.getFutureForEvent(device_complete_event_handles[0], std::move(callbackUserData));
 }
 
 
