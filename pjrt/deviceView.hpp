@@ -10,6 +10,9 @@ class Context;
 class DeviceView {
 public:
   DeviceView(const Context &context, PJRT_Device *device);
+  DeviceView(DeviceView &&other);
+  DeviceView& operator=(DeviceView &&other);
+
   // No destructor because PJRT_Client owns the devices and no cleanup is required.
 public:
 // private:

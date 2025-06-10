@@ -16,6 +16,8 @@ class DeviceView;
 class LoadedExecutable {
 public:
   LoadedExecutable(const Context &context, PJRT_LoadedExecutable *loadedExecutable);
+  LoadedExecutable(LoadedExecutable &&other);
+  LoadedExecutable& operator=(LoadedExecutable &&other);
   ~LoadedExecutable();
 
   void destroy();

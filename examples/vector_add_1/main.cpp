@@ -65,26 +65,26 @@ int main(int argc, char* argv[]) {
   std::vector<int64_t> shape = {128};
   std::future<pjrt::Buffer> futureInputBuffer = client.transferToDevice(host_input_data.data(), shape, device);
   futureInputBuffer.wait();
+  std::cout << "Input buffer created and transfer to device is complete." << std::endl;
   pjrt::Buffer inputBuffer = futureInputBuffer.get(); // Get the buffer object
   std::cout << "Input buffer dimensions: {";
   const auto& input_dims = inputBuffer.dimensions();
   for (size_t i = 0; i < input_dims.size(); ++i) {
     std::cout << input_dims[i] << (i == input_dims.size() - 1 ? "" : ", ");
   }
-  std::cout << "}" << std::endl;
-  std::cout << "Input buffer created and transfer to device is complete." << std::endl << std::endl;
+  std::cout << "}" << std::endl << std::endl;
 
   std::cout << "Executing compiled program..." << std::endl;
   std::future<pjrt::Buffer> futureOutputBuffer = loadedExecutable.execute(device, inputBuffer);
   futureOutputBuffer.wait();
+  std::cout << "Execution complete" << std::endl;
   pjrt::Buffer outputBuffer = futureOutputBuffer.get(); // Get the buffer object
   std::cout << "Output buffer dimensions: {";
   const auto& output_dims = outputBuffer.dimensions();
   for (size_t i = 0; i < output_dims.size(); ++i) {
     std::cout << output_dims[i] << (i == output_dims.size() - 1 ? "" : ", ");
   }
-  std::cout << "}" << std::endl;
-  std::cout << "Execution complete" << std::endl << std::endl;
+  std::cout << "}" << std::endl << std::endl;
 
   std::cout << "Transferring result to host" << std::endl;
   std::future<float> outputFuture = outputBuffer.toHost<float>();

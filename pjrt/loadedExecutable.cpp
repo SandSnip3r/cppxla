@@ -16,6 +16,7 @@
 #pragma GCC diagnostic pop
 #endif
 
+  #include <cassert>
 #include <stdexcept>
 #include <vector>
 
@@ -33,8 +34,20 @@ LoadedExecutable::LoadedExecutable(const Context &context, PJRT_LoadedExecutable
   executable_ = Executable(context, args.executable);
 }
 
+LoadedExecutable::LoadedExecutable(LoadedExecutable &&other) : context_(other.context_), loadedExecutable_(other.loadedExecutable_), executable_(std::move(other.executable_)) {
+  other.loadedExecutable_ = nullptr;
+}
+
+LoadedExecutable& LoadedExecutable::operator=(LoadedExecutable &&other) {
+  assert(((void)"Cannot assign a LoadedExecutable from one context to another", &other.context_ == &context_));
+  loadedExecutable_ = other.loadedExecutable_;
+  other.loadedExecutable_ = nullptr;
+  executable_ = std::move(other.executable_);
+  return *this;
+}
+
 LoadedExecutable::~LoadedExecutable() {
-  if (!loadedExecutable_) {
+  if (loadedExecutable_ == nullptr) {
     return;
   }
   PJRT_LoadedExecutable_Destroy_Args exec_destroy_args;
@@ -102,47 +115,38 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
 
   PJRT_Error* exec_error = context_.pjrtApi_->PJRT_LoadedExecutable_Execute(&exec_args);
   if (exec_error != nullptr) {
-    // It's possible that raw_output_c_buffer is populated even on error.
-    // However, PJRT_Buffer_Destroy requires a valid PJRT_Buffer*.
-    // If exec_error is not null, raw_output_c_buffer might not be valid or might be partially initialized.
-    // The PJRT spec is unclear on whether PJRT_Buffer_Destroy should be called on outputs if Execute fails.
-    // For now, we assume the C API handles cleanup of output buffers if Execute itself fails.
+    // TODO: We assume that there are no buffers or events that we are responsible for cleaning up. The PJRT API documentation is unclear in this case.
     throw context_.convertPjrtErrorToException(exec_error, "PJRT_LoadedExecutable_Execute", __FILE__, __LINE__);
   }
 
-  // Get the output buffer dimensions using raw_output_c_buffer
-  PJRT_Buffer_Dimensions_Args dim_args;
-  dim_args.struct_size = PJRT_Buffer_Dimensions_Args_STRUCT_SIZE;
-  dim_args.extension_start = nullptr;
-  dim_args.buffer = raw_output_c_buffer; // Use the C buffer pointer populated by Execute
-  dim_args.dims = nullptr;
-  dim_args.num_dims = 0;
+  // =================================================================================================
+  // TODO: The buffer is not yet ready. Because of this, I think we cannot get the dimensions yet.
+  // Should we:
+  //  1. On completion of execution, immediately trigger the fetching of the Shape of the buffer.
+  //  2. Allow creation of a buffer which does not yet know its shape and lazily fetch it if requested.
+  //
+  // Our general philosophy so far has been to not do anything lazily, so maybe #1 for consistency.
 
-  // TODO: The PJRT_Buffer_Dimensions call itself might return an error in dim_args.error.
-  // This needs to be checked.
-  context_.pjrtApi_->PJRT_Buffer_Dimensions(&dim_args);
-  if (dim_args.error != nullptr) {
-    // If getting dimensions fails, we might have a valid PJRT_Buffer that needs destroying.
-    // This is tricky. For now, throw, assuming the buffer might be in an inconsistent state.
-    // A more robust solution might involve trying to destroy raw_output_c_buffer if it's non-null.
-    throw context_.convertPjrtErrorToException(dim_args.error, "PJRT_Buffer_Dimensions (getting rank)", __FILE__, __LINE__);
-  }
+  // // Get the output buffer dimensions using raw_output_c_buffer
+  // PJRT_Buffer_Dimensions_Args dim_args;
+  // dim_args.struct_size = PJRT_Buffer_Dimensions_Args_STRUCT_SIZE;
+  // dim_args.extension_start = nullptr;
+  // dim_args.buffer = raw_output_c_buffer; // Use the C buffer pointer populated by Execute
+  // dim_args.dims = nullptr;
+  // dim_args.num_dims = 0;
 
-  size_t rank = dim_args.num_dims;
-  std::vector<int64_t> actual_dimensions(rank);
+  // PJRT_Error* dim_error = context_.pjrtApi_->PJRT_Buffer_Dimensions(&dim_args);
+  // if (dim_error != nullptr) {
+  //   throw context_.convertPjrtErrorToException(dim_error, "PJRT_Buffer_Dimensions (getting rank)", __FILE__, __LINE__);
+  // }
+  // =================================================================================================
 
-  if (rank > 0) {
-    dim_args.dims = actual_dimensions.data();
-    dim_args.num_dims = rank; // Pass the capacity
-    context_.pjrtApi_->PJRT_Buffer_Dimensions(&dim_args);
-    if (dim_args.error != nullptr) {
-      // Similar to above, error handling for partially created buffers is complex.
-      throw context_.convertPjrtErrorToException(dim_args.error, "PJRT_Buffer_Dimensions (getting dims)", __FILE__, __LINE__);
-    }
-  }
+  // std::vector<int64_t> actual_dimensions(dim_args.dims, dim_args.dims+dim_args.num_dims);
+
+  std::vector<int64_t> fake_dimensions = {128};
 
   // Construct the final Buffer object
-  pjrt::Buffer final_output_buffer(context_, raw_output_c_buffer, std::move(actual_dimensions));
+  pjrt::Buffer final_output_buffer(context_, raw_output_c_buffer, std::move(fake_dimensions));
 
   // Create CallbackUserData with the fully formed Buffer
   std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData =

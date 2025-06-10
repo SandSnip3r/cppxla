@@ -28,7 +28,7 @@ namespace pjrt {
 class Buffer {
 public:
   Buffer(const Context &context);
-  Buffer(const Context &context, PJRT_Buffer *buffer, std::vector<int64_t>&& dims);
+  Buffer(const Context &context, PJRT_Buffer *buffer, const std::vector<int64_t> &dims);
   Buffer(Buffer &&other);
 
   const std::vector<int64_t>& dimensions() const { return dimensions_; }
@@ -56,9 +56,9 @@ public:
 
     PJRT_Error* pjrtError = context_.pjrtApi_->PJRT_Buffer_ToHostBuffer(&bthh_args);
     if (pjrtError != nullptr) {
+      // TODO: The PJRT documentation does not say whether or not we need to free the event in the args struct in the case of an error. My current guess is that we do not.
       throw context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_ToHostBuffer", __FILE__, __LINE__);
     }
-    // TODO: The PJRT documentation does not say whether or not we need to free the event in the case of an error. My current guess is that we do not.
 
     assert(((void)"There should be no event when simply querying size", bthh_args.event == nullptr));
     std::cout << "Required size is " << bthh_args.dst_size << std::endl;

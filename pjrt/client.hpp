@@ -59,7 +59,7 @@ std::future<Buffer> Client::transferToDevice(T *data, const std::vector<int64_t>
   bfhh_args.extension_start = nullptr;
   bfhh_args.client = client_;
   bfhh_args.data = data;
-  bfhh_args.type = detail::PjrtTypeFor<T>::kType;
+  bfhh_args.type = detail::TypeToPjrtBufferType<T>();
 
   if (shape.empty() && std::is_arithmetic_v<T>) { // Handle scalar specifically if dimensions is empty
     bfhh_args.dims = nullptr;

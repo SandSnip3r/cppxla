@@ -14,6 +14,7 @@
 #endif
 
 #include <cstdint>
+#include <type_traits>
 
 namespace pjrt::detail {
 
@@ -32,10 +33,18 @@ template <> struct PjrtTypeFor<uint32_t>{ static constexpr PJRT_Buffer_Type kTyp
 template <> struct PjrtTypeFor<int64_t> { static constexpr PJRT_Buffer_Type kType = PJRT_Buffer_Type_S64; };
 template <> struct PjrtTypeFor<uint64_t>{ static constexpr PJRT_Buffer_Type kType = PJRT_Buffer_Type_U64; };
 
+// Helper to check if PjrtTypeFor<T> is specialized by checking for ::kType
+template<typename T, typename = void>
+struct is_PjrtTypeFor_specialized : std::false_type {};
+
+template<typename T>
+struct is_PjrtTypeFor_specialized<T, std::void_t<decltype(PjrtTypeFor<T>::kType)>> : std::true_type {};
+
 template <typename T>
 constexpr PJRT_Buffer_Type TypeToPjrtBufferType() {
-  static_assert(!std::is_same_v<PjrtTypeFor<T>, PjrtTypeFor<void>>, "Unsupported type for PJRT buffer. Please add a specialization to PjrtTypeFor.");
-  return PjrtTypeFor<T>::kType;
+  using NonConstT = std::remove_const_t<T>;
+  static_assert(is_PjrtTypeFor_specialized<NonConstT>::value, "Unsupported type for PJRT buffer. Please add a specialization to PjrtTypeFor for the non-const version of the type.");
+  return PjrtTypeFor<NonConstT>::kType;
 }
 
 } // namespace pjrt::detail
