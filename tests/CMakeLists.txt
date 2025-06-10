@@ -14,6 +14,7 @@ FetchContent_MakeAvailable(googletest)
 # 2. Define your test executable
 add_executable(pjrt_lib_tests
     test_initialization.cpp
+    test_buffer_shapes.cpp
     # Add other test_*.cpp files here
 )
 

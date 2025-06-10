@@ -19,7 +19,13 @@
 
 namespace pjrt {
 
-Executable::Executable(const Context &context, PJRT_Executable *executable) : context_(context), executable_(executable) {}
+Executable::Executable(const Context &context, PJRT_Executable *executable) : context_(context), executable_(executable) {
+
+}
+
+Executable::Executable(Executable &&other) : context_(other.context_), executable_(other.executable_) {
+  other.executable_ = nullptr;
+}
 
 Executable::~Executable() {
   if (executable_ == nullptr) {

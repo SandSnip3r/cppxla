@@ -9,17 +9,17 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wchanges-meaning"
 #endif
-
 // Assume pjrt_c_api.h is in the same directory or an include path
 #include "pjrt_c_api.h"
-
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
 #include <cassert>
+#include <cstdint>
 #include <future>
 #include <iostream>
+#include <vector>
 
 struct PJRT_Buffer;
 
@@ -28,8 +28,11 @@ namespace pjrt {
 class Buffer {
 public:
   Buffer(const Context &context);
-  Buffer(const Context &context, PJRT_Buffer *buffer);
+  Buffer(const Context &context, PJRT_Buffer *buffer, const std::vector<int64_t> &dims);
   Buffer(Buffer &&other);
+
+  const std::vector<int64_t>& dimensions() const { return dimensions_; }
+  PJRT_Buffer* c_buffer() const { return buffer_; }
 
   // Attempts to clean up resources, will not throw. If cleanup fails, resources may be leaked.
   ~Buffer();
@@ -53,9 +56,9 @@ public:
 
     PJRT_Error* pjrtError = context_.pjrtApi_->PJRT_Buffer_ToHostBuffer(&bthh_args);
     if (pjrtError != nullptr) {
+      // TODO: The PJRT documentation does not say whether or not we need to free the event in the args struct in the case of an error. My current guess is that we do not.
       throw context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_ToHostBuffer", __FILE__, __LINE__);
     }
-    // TODO: The PJRT documentation does not say whether or not we need to free the event in the case of an error. My current guess is that we do not.
 
     assert(((void)"There should be no event when simply querying size", bthh_args.event == nullptr));
     std::cout << "Required size is " << bthh_args.dst_size << std::endl;
@@ -64,10 +67,10 @@ public:
     // TODO: For now, this return value is useless.
     return context_.getFutureForEvent(bthh_args.event, std::move(callbackUserData));
   }
-public:
-// private:
+private:
   const Context &context_;
   PJRT_Buffer *buffer_{nullptr};
+  const std::vector<int64_t> dimensions_;
 };
 
 } // namespace pjrt

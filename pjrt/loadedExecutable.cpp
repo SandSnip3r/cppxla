@@ -16,7 +16,9 @@
 #pragma GCC diagnostic pop
 #endif
 
+  #include <cassert>
 #include <stdexcept>
+#include <vector>
 
 namespace pjrt {
 
@@ -32,8 +34,20 @@ LoadedExecutable::LoadedExecutable(const Context &context, PJRT_LoadedExecutable
   executable_ = Executable(context, args.executable);
 }
 
+LoadedExecutable::LoadedExecutable(LoadedExecutable &&other) : context_(other.context_), loadedExecutable_(other.loadedExecutable_), executable_(std::move(other.executable_)) {
+  other.loadedExecutable_ = nullptr;
+}
+
+LoadedExecutable& LoadedExecutable::operator=(LoadedExecutable &&other) {
+  assert(((void)"Cannot assign a LoadedExecutable from one context to another", &other.context_ == &context_));
+  loadedExecutable_ = other.loadedExecutable_;
+  other.loadedExecutable_ = nullptr;
+  executable_ = std::move(other.executable_);
+  return *this;
+}
+
 LoadedExecutable::~LoadedExecutable() {
-  if (!loadedExecutable_) {
+  if (loadedExecutable_ == nullptr) {
     return;
   }
   PJRT_LoadedExecutable_Destroy_Args exec_destroy_args;
@@ -82,19 +96,17 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
   exec_args.options = &exec_options;
 
   // Argument lists: Our program takes 1 argument. We are executing on 1 device.
-  PJRT_Buffer* actual_input_buffers_for_device0[] = {inputBuffer.buffer_};
+  PJRT_Buffer* actual_input_buffers_for_device0[] = {inputBuffer.c_buffer()}; // Use getter
   PJRT_Buffer* const* argument_lists_for_all_devices[] = {actual_input_buffers_for_device0}; // Array of lists of args
   exec_args.argument_lists = argument_lists_for_all_devices;
   exec_args.num_devices = 1; // We are launching on a single device instance here
   exec_args.num_args = 1;    // The @main function has one argument %arg0
 
-  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_));
-
-  // Output lists: Our program has 1 output.
-  // The API will populate the PJRT_Buffer* in this array.
-  PJRT_Buffer** output_lists_for_all_devices[1];    // Array of lists of outputs
-  output_lists_for_all_devices[0] = &callbackUserData->getData().buffer_;
-  exec_args.output_lists = output_lists_for_all_devices;
+  // Output setup
+  PJRT_Buffer* raw_output_c_buffer = nullptr;
+  PJRT_Buffer** output_list_for_device0[1];
+  output_list_for_device0[0] = &raw_output_c_buffer;
+  exec_args.output_lists = output_list_for_device0;
 
   // Device complete events: one event per device in the launch
   PJRT_Event* device_complete_event_handles[1];
@@ -103,8 +115,42 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
 
   PJRT_Error* exec_error = context_.pjrtApi_->PJRT_LoadedExecutable_Execute(&exec_args);
   if (exec_error != nullptr) {
+    // TODO: We assume that there are no buffers or events that we are responsible for cleaning up. The PJRT API documentation is unclear in this case.
     throw context_.convertPjrtErrorToException(exec_error, "PJRT_LoadedExecutable_Execute", __FILE__, __LINE__);
   }
+
+  // =================================================================================================
+  // TODO: The buffer is not yet ready. Because of this, I think we cannot get the dimensions yet.
+  // Should we:
+  //  1. On completion of execution, immediately trigger the fetching of the Shape of the buffer.
+  //  2. Allow creation of a buffer which does not yet know its shape and lazily fetch it if requested.
+  //
+  // Our general philosophy so far has been to not do anything lazily, so maybe #1 for consistency.
+
+  // // Get the output buffer dimensions using raw_output_c_buffer
+  // PJRT_Buffer_Dimensions_Args dim_args;
+  // dim_args.struct_size = PJRT_Buffer_Dimensions_Args_STRUCT_SIZE;
+  // dim_args.extension_start = nullptr;
+  // dim_args.buffer = raw_output_c_buffer; // Use the C buffer pointer populated by Execute
+  // dim_args.dims = nullptr;
+  // dim_args.num_dims = 0;
+
+  // PJRT_Error* dim_error = context_.pjrtApi_->PJRT_Buffer_Dimensions(&dim_args);
+  // if (dim_error != nullptr) {
+  //   throw context_.convertPjrtErrorToException(dim_error, "PJRT_Buffer_Dimensions (getting rank)", __FILE__, __LINE__);
+  // }
+  // =================================================================================================
+
+  // std::vector<int64_t> actual_dimensions(dim_args.dims, dim_args.dims+dim_args.num_dims);
+
+  std::vector<int64_t> fake_dimensions = {128};
+
+  // Construct the final Buffer object
+  pjrt::Buffer final_output_buffer(context_, raw_output_c_buffer, std::move(fake_dimensions));
+
+  // Create CallbackUserData with the fully formed Buffer
+  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData =
+      std::make_unique<detail::CallbackUserData<Buffer>>(context_, std::move(final_output_buffer));
 
   return context_.getFutureForEvent(device_complete_event_handles[0], std::move(callbackUserData));
 }

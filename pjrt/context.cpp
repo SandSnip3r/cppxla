@@ -132,7 +132,7 @@ Exception Context::convertPjrtErrorToException(PJRT_Error *error, std::string_vi
   /* Note that PJRT_Error_Message_Args::message and                                   */
   /* PJRT_Error_Message_Args::message_size's lifetimes match that of the              */
   /* actual PJRT_Error. Once the error is destroyed, we must not access these fields. */
-  const std::string errorMessage = sourceLocation + " Error: " +
+  const std::string errorMessage = sourceLocation + " Error:\n" +
       std::string(error_message_args.message, error_message_args.message_size);
 
   /* Destroy the PJRT_Error. */

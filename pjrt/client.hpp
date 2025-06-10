@@ -59,7 +59,7 @@ std::future<Buffer> Client::transferToDevice(T *data, const std::vector<int64_t>
   bfhh_args.extension_start = nullptr;
   bfhh_args.client = client_;
   bfhh_args.data = data;
-  bfhh_args.type = detail::PjrtTypeFor<T>::kType;
+  bfhh_args.type = detail::TypeToPjrtBufferType<T>();
 
   if (shape.empty() && std::is_arithmetic_v<T>) { // Handle scalar specifically if dimensions is empty
     bfhh_args.dims = nullptr;
@@ -85,7 +85,7 @@ std::future<Buffer> Client::transferToDevice(T *data, const std::vector<int64_t>
     throw context_.convertPjrtErrorToException(bfhh_error, "PJRT_Client_BufferFromHostBuffer", __FILE__, __LINE__);
   }
 
-  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_, bfhh_args.buffer));
+  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData = std::make_unique<detail::CallbackUserData<Buffer>>(context_, Buffer(context_, bfhh_args.buffer, shape));
   return context_.getFutureForEvent(bfhh_args.done_with_host_buffer, std::move(callbackUserData));
 }
 

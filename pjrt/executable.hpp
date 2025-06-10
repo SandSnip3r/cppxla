@@ -12,6 +12,7 @@ class Context;
 class Executable {
 public:
   Executable(const Context &context, PJRT_Executable *executable);
+  Executable(Executable &&other);
   Executable& operator=(Executable &&other);
   ~Executable();
 
