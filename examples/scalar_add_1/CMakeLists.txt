@@ -34,10 +34,10 @@ endif()
 
 # Copy example data files to the build directory next to the executable if needed
 # This makes it easier to run the example from the build directory.
-# For myJax.py and myStableHlo.txt
+# For myJax.py and scalar_add_1.stablehlo
 set(EXAMPLE_DATA_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/myJax.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/myStableHlo.txt"
+    "${CMAKE_CURRENT_SOURCE_DIR}/scalar_add_1.stablehlo"
 )
 
 foreach(DATA_FILE ${EXAMPLE_DATA_FILES})

@@ -69,15 +69,16 @@ void performVersionCheck(pjrt::Context &context) {
 }
 
 void executeAndVerify(pjrt::DeviceView &device, pjrt::Client &client, pjrt::LoadedExecutable &executable, float input) {
-  std::future<pjrt::Buffer> inputBuffer = client.transferToDevice(&input, {}, device);
+  std::future<pjrt::Buffer> inputBufferFuture = client.transferToDevice(&input, {}, device);
   std::cout << "Started transfer" << std::endl;
-  pjrt::Buffer buffer = inputBuffer.get();
+  pjrt::Buffer buffer = inputBufferFuture.get();
   std::cout << "Transfer complete, starting execution" << std::endl;
-  std::future<pjrt::Buffer> outputBuffer = executable.execute(device, buffer);
-  pjrt::Buffer buffer2 = outputBuffer.get();
+  std::vector<pjrt::Buffer*> input_buffers = {&buffer};
+  std::future<std::vector<pjrt::Buffer>> output_buffers_future = executable.execute(device, input_buffers);
+  std::vector<pjrt::Buffer> output_buffers = output_buffers_future.get();
   std::cout << "Execution complete, transferring to host" << std::endl;
-  std::future<float> outputFuture = buffer2.toHost();
-  float output = outputFuture.get();
+  std::future<std::vector<float>> outputFuture = output_buffers[0].toHost<float>();
+  float output = outputFuture.get()[0];
   if (output != input+1) {
     std::cout << "Unexpected result! " << input+1 << " expected, " << output << " received" << std::endl;
   } else {
@@ -100,7 +101,7 @@ int main(int argc, char* argv[]) {
   // Read HLO program from file
   std::string stableHloStr;
   try {
-    const char* hloProgramFilePath = "myStableHlo.txt";
+    const char* hloProgramFilePath = "scalar_add_1.stablehlo";
     stableHloStr = readFileIntoStream(hloProgramFilePath);
     std::cout << "Successfully read HLO program from: " << hloProgramFilePath << std::endl;
   } catch (const std::exception& e) {
@@ -116,13 +117,16 @@ int main(int argc, char* argv[]) {
   // Try running the compiled executable
   std::cout << "Creating input buffer..." << std::endl;
   float host_input_data = 41.0f;
-  std::future<pjrt::Buffer> inputBuffer = client.transferToDevice(&host_input_data, {}, device);
+  std::future<pjrt::Buffer> inputBufferFuture = client.transferToDevice(&host_input_data, {}, device);
+  pjrt::Buffer inputBuffer = inputBufferFuture.get();
   std::cout << "Input buffer created and transfer to device is complete." << std::endl;
   std::cout << "Executing compiled program..." << std::endl;
-  std::future<pjrt::Buffer> outputBuffer = executable.execute(device, inputBuffer.get());
+  std::vector<pjrt::Buffer*> input_buffers = {&inputBuffer};
+  std::future<std::vector<pjrt::Buffer>> output_buffers_future = executable.execute(device, input_buffers);
+  std::vector<pjrt::Buffer> output_buffers = output_buffers_future.get();
   std::cout << "Execution complete" << std::endl;
-  std::future<float> outputFuture = outputBuffer.get().toHost();
-  float result = outputFuture.get();
+  std::future<std::vector<float>> outputFuture = output_buffers[0].toHost<float>();
+  float result = outputFuture.get()[0];
   std::cout << "Output value: " << result << std::endl;
 
   // Run the program a few more times on some different inputs and verify that the output is correct.
