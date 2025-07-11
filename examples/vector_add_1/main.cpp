@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
   // Read HLO program from file
   std::string stableHloStr;
   try {
-    const char* hloProgramFilePath = "myStableHlo.txt";
+    const char* hloProgramFilePath = "vector_add_1.stablehlo";
     stableHloStr = readFileIntoStream(hloProgramFilePath);
     std::cout << "Successfully read HLO program from: " << hloProgramFilePath << std::endl << std::endl;
   } catch (const std::exception& e) {
@@ -75,10 +75,12 @@ int main(int argc, char* argv[]) {
   std::cout << "}" << std::endl << std::endl;
 
   std::cout << "Executing compiled program..." << std::endl;
-  std::future<pjrt::Buffer> futureOutputBuffer = loadedExecutable.execute(device, inputBuffer);
-  futureOutputBuffer.wait();
+  std::vector<pjrt::Buffer*> input_buffers = {&inputBuffer};
+  std::future<std::vector<pjrt::Buffer>> futureOutputBuffers = loadedExecutable.execute(device, input_buffers);
+  futureOutputBuffers.wait();
   std::cout << "Execution complete" << std::endl;
-  pjrt::Buffer outputBuffer = futureOutputBuffer.get(); // Get the buffer object
+  std::vector<pjrt::Buffer> outputBuffers = futureOutputBuffers.get(); // Get the buffer object
+  pjrt::Buffer& outputBuffer = outputBuffers[0];
   std::cout << "Output buffer dimensions: {";
   const auto& output_dims = outputBuffer.dimensions();
   for (size_t i = 0; i < output_dims.size(); ++i) {
@@ -87,9 +89,14 @@ int main(int argc, char* argv[]) {
   std::cout << "}" << std::endl << std::endl;
 
   std::cout << "Transferring result to host" << std::endl;
-  std::future<float> outputFuture = outputBuffer.toHost<float>();
-  float result = outputFuture.get();
-  std::cout << "Output value: " << result << std::endl;
+  std::future<std::vector<float>> outputFuture = outputBuffer.toHost<float>();
+  std::vector<float> result = outputFuture.get();
+  std::cout << "Output values: ";
+  for (size_t i = 0; i < result.size(); ++i) {
+    std::cout << result[i] << ',';
+  }
+  std::cout << std::endl;
+
 
   return 0;
 }

@@ -98,7 +98,7 @@ int main() {
     std::cout << "Successfully initialized model and optimizer." << std::endl;
 
     // Training Loop
-    const int num_steps = 1024;
+    const int num_steps = 4096;
     const int batch_size = 128;
 
     for (int step = 0; step < num_steps; ++step) {

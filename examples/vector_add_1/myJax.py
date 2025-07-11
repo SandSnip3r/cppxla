@@ -22,11 +22,13 @@ def main():
   #    The compiler_ir() method can take a dialect argument.
   stablehlo_ir_module = lowered_computation.compiler_ir(dialect='stablehlo')
 
-  # 6. Print the StableHLO to stdout.
+  # 6. Print the StableHLO to a file.
   #    The result from compiler_ir() is an MLIR Module object,
   #    which can be converted to a string.
   if stablehlo_ir_module:
-    print(str(stablehlo_ir_module))
+    with open("vector_add_1.stablehlo", "w") as f:
+        f.write(str(stablehlo_ir_module))
+    print("Saved StableHLO to vector_add_1.stablehlo")
   else:
     print("Could not retrieve StableHLO representation.")
 

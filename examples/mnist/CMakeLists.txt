@@ -34,3 +34,27 @@ if(DEFINED RPATH_ENTRIES_CONFIG AND RPATH_ENTRIES_CONFIG)
 else()
     message(STATUS "No RPATH_ENTRIES_CONFIG defined for mnist_main. Ensure plugin dependencies are findable.")
 endif()
+
+# Copy example data files to the build directory next to the executable.
+# This makes it easier to run the example from the build directory.
+set(EXAMPLE_DATA_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/init_model.stablehlo"
+    "${CMAKE_CURRENT_SOURCE_DIR}/init_optimizer.stablehlo"
+    "${CMAKE_CURRENT_SOURCE_DIR}/train_step.stablehlo"
+    "${CMAKE_CURRENT_SOURCE_DIR}/t10k-images-idx3-ubyte"
+    "${CMAKE_CURRENT_SOURCE_DIR}/t10k-labels-idx1-ubyte"
+    "${CMAKE_CURRENT_SOURCE_DIR}/train-images-idx3-ubyte"
+    "${CMAKE_CURRENT_SOURCE_DIR}/train-labels-idx1-ubyte"
+)
+
+foreach(DATA_FILE ${EXAMPLE_DATA_FILES})
+    get_filename_component(DATA_FILE_NAME ${DATA_FILE} NAME)
+    add_custom_command(
+        TARGET mnist_main POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${DATA_FILE}"
+                "$<TARGET_FILE_DIR:mnist_main>/${DATA_FILE_NAME}"
+        COMMENT "Copying ${DATA_FILE_NAME} to executable directory"
+    )
+endforeach()
+

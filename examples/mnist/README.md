@@ -62,11 +62,10 @@ cmake . -B build
 cmake --build build
 ```
 
-Now, change into the `examples/mnist` directory and run the C++ executable from there. The application needs to be run from this directory so it can find the generated `.stablehlo` files and the MNIST dataset.
+Now, run the C++ executable from the build directory. The necessary `.stablehlo` and dataset files will be copied there automatically during the build process.
 
 ```bash
-cd examples/mnist
-../../build/examples/mnist/mnist_main
+./build/examples/mnist/mnist_main
 ```
 
 The application will load the model, initialize weights, and run a training loop, printing the loss at each step.
