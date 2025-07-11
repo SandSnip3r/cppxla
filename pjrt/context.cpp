@@ -25,12 +25,12 @@
 namespace pjrt {
 
 Context::Context() {
-  const char* plugin_path = PJRT_PLUGIN_PATH;
+  const char* pluginPath = PJRT_PLUGIN_PATH;
 
   // Open the plugin
   // RTLD_LAZY: Resolve symbols only as the code that references them is executed.
   // RTLD_GLOBAL: Make symbols from this library available for symbol resolution of subsequently loaded libraries.
-  pluginHandle_ = dlopen(plugin_path, RTLD_LAZY | RTLD_GLOBAL);
+  pluginHandle_ = dlopen(pluginPath, RTLD_LAZY | RTLD_GLOBAL);
   const char *error = dlerror();
   if (error) {
     throw std::runtime_error("Error loading PJRT plugin: "+std::string(error));
@@ -59,10 +59,10 @@ Context::Context() {
 
   // Do a quick version check.
   if (pjrtApi_->pjrt_api_version.major_version != PJRT_API_MAJOR) {
-    throw pjrt::Exception("PJRT API major version mismatch. Expected " + std::to_string(PJRT_API_MAJOR) + ", got " + std::to_string(pjrtApi_->pjrt_api_version.major_version));
+    throw pjrt::Exception("PJRT API major version mismatch. Header is " + std::to_string(PJRT_API_MAJOR) + " and shared library is " + std::to_string(pjrtApi_->pjrt_api_version.major_version));
   }
   if (pjrtApi_->pjrt_api_version.minor_version != PJRT_API_MINOR) {
-    throw pjrt::Exception("PJRT API minor version mismatch. Expected " + std::to_string(PJRT_API_MINOR) + ", got " + std::to_string(pjrtApi_->pjrt_api_version.minor_version));
+    throw pjrt::Exception("PJRT API minor version mismatch. Header is " + std::to_string(PJRT_API_MINOR) + " and shared library is " + std::to_string(pjrtApi_->pjrt_api_version.minor_version));
   }
 
   PJRT_Plugin_Initialize_Args pluginInitializeArgs;

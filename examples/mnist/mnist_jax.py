@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from jax import grad, jit, random
 import optax
 
-# 1. Model Definition
+# Model Definition
 
 def init_params(key, image_shape, num_classes):
     """Initializes the CNN parameters."""
@@ -52,13 +52,13 @@ def apply_model(params, images):
     x = jnp.dot(x, dense2_w) + dense2_b
     return x
 
-# 2. Optimizer Setup
+# Optimizer Setup
 
 def create_optimizer(learning_rate=1e-3):
     """Creates an Adam optimizer."""
     return optax.adam(learning_rate)
 
-# 3. Training Step Logic
+# Training Step Logic
 
 def loss_fn(params, images, labels):
     """Calculates the cross-entropy loss."""
@@ -84,22 +84,23 @@ if __name__ == '__main__':
 
     # Dummy data for demonstration
     key = random.PRNGKey(0)
-    dummy_images = jnp.ones((1, 28, 28, 1))
-    dummy_labels = jnp.ones((1,), dtype=jnp.int32)
+    dummy_images = jnp.ones((128, 28, 28, 1))
+    dummy_labels = jnp.ones((128,), dtype=jnp.int32)
     num_classes = 10
     image_shape = dummy_images.shape
 
-    # 1. Get StableHLO for model initialization
-    def init_model_func(key):
+    # Get StableHLO for model initialization
+    def init_model_func(seed):
+        key = random.PRNGKey(seed)
         return init_params(key, image_shape, num_classes)
 
-    lowered_init_model = jit(init_model_func).lower(key)
-    stable_hlo_init_model = lowered_init_model.compiler_ir('stablehlo')
+    # lowered_init_model = jit(init_model_func).lower(key)
+    # stable_hlo_init_model = lowered_init_model.compiler_ir('stablehlo')
     with open("init_model.stablehlo", "w") as f:
-        f.write(str(stable_hlo_init_model))
+        f.write(jax.jit(init_model_func).lower(jnp.int32(0)).as_text())
     print("Saved StableHLO for init_model to init_model.stablehlo")
 
-    # 2. Get StableHLO for optimizer initialization
+    # Get StableHLO for optimizer initialization
     # We need some initial params to initialize the optimizer state.
     params = init_params(key, image_shape, num_classes)
     optimizer = create_optimizer()
@@ -114,7 +115,7 @@ if __name__ == '__main__':
     print("Saved StableHLO for init_optimizer to init_optimizer.stablehlo")
 
 
-    # 3. Get StableHLO for the training step
+    # Get StableHLO for the training step
     opt_state = optimizer.init(params)
     lowered_train_step = jitted_train_step.lower(
         params, opt_state, optimizer, dummy_images, dummy_labels

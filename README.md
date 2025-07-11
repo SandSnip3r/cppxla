@@ -37,14 +37,23 @@ cmake --build build
 
 # Running
 
-To run the example in this repository, first generate the example program in the StableHlo text format. PJRT's input format for a program which you'd like to compile is StableHLO:
+To run the examples in this repository, first generate the example programs in the StableHlo text format. PJRT's input format for a program which you'd like to compile is StableHLO.
+
+There are a few examples:
+* `scalar_add_1`: A simple example of adding two scalars.
+* `vector_add_1`: A simple example of adding two vectors.
+* `mnist`: A more complex example of training a Convolutional Neural Network (CNN) on the MNIST dataset.
+
+For the simple examples, you can generate the StableHLO like this:
 ```
-python myJax.py > myStableHlo.txt
+python examples/scalar_add_1/myJax.py > scalar_add_1.stablehlo
 ```
 Now, run the example with the generated StableHlo program:
 ```
-./build/pjrt_example myStableHlo.txt
+./build/examples/scalar_add_1/scalar_add_1 scalar_add_1.stablehlo
 ```
+
+For the MNIST example, please see the [README in the mnist example directory](examples/mnist/README.md).
 
 # Design
 

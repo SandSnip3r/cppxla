@@ -86,15 +86,15 @@ std::string Client::platformName() const {
 LoadedExecutable Client::compileFromStableHloString(const std::string &stableHloProgram) const {
   // Use a std::vector<char> for PJRT_Program.code to be safe with the char* type
   std::vector<char> hlo_program_buffer(stableHloProgram.begin(), stableHloProgram.end());
-  // PJRT_Program does not typically require a null terminator if code_size is accurate.
-  // If your specific format or plugin did, you would add: hlo_program_buffer.push_back('\0');
+  // TODO(PJRT): It should be made clear that a null terminator is required on the program string. 
+  hlo_program_buffer.push_back('\0');
 
   // --- Compile the Program ---
   PJRT_Program program_desc;
   program_desc.struct_size = PJRT_Program_STRUCT_SIZE;
   program_desc.extension_start = nullptr;
-  program_desc.code = hlo_program_buffer.data(); // data() from vector is char*
-  program_desc.code_size = hlo_program_buffer.size(); // Use the actual size of the content in the vector
+  program_desc.code = hlo_program_buffer.data();
+  program_desc.code_size = hlo_program_buffer.size() - 1; // Use the actual size of the content in the vector (excluding the null terminator)
 
   const char* format_str = "mlir"; // Your program is in MHLO MLIR text format
   program_desc.format = format_str;

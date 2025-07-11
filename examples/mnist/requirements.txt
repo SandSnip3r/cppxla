@@ -1,0 +1,3 @@
+jax[cuda]
+optax
+torchvision

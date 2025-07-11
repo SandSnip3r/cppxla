@@ -61,8 +61,35 @@ Executable& Executable::operator=(Executable &&other) {
 }
 
 size_t Executable::getNumOutputs() {
-  // TODO:
-  return 0;
+  PJRT_Executable_NumOutputs_Args args;
+  args.struct_size = PJRT_Executable_NumOutputs_Args_STRUCT_SIZE;
+  args.executable = executable_;
+  PJRT_Error *error = context_.pjrtApi_->PJRT_Executable_NumOutputs(&args);
+  if (error != nullptr) {
+    throw context_.convertPjrtErrorToException(error, "PJRT_Executable_NumOutputs", __FILE__, __LINE__);
+  }
+  return args.num_outputs;
+}
+
+std::vector<std::vector<int64_t>> Executable::getOutputDimensions() {
+  PJRT_Executable_OutputDimensions_Args args;
+  args.struct_size = PJRT_Executable_OutputDimensions_Args_STRUCT_SIZE;
+  args.executable = executable_;
+  PJRT_Error *error = context_.pjrtApi_->PJRT_Executable_OutputDimensions(&args);
+  if (error != nullptr) {
+    throw context_.convertPjrtErrorToException(error, "PJRT_Executable_OutputDimensions", __FILE__, __LINE__);
+  }
+
+  std::vector<std::vector<int64_t>> all_dimensions;
+  all_dimensions.reserve(args.num_outputs);
+  const int64_t* current_dim_ptr = args.dims;
+  for (size_t i = 0; i < args.num_outputs; ++i) {
+    size_t num_dims_for_output = args.dim_sizes[i];
+    std::vector<int64_t> dimensions(current_dim_ptr, current_dim_ptr + num_dims_for_output);
+    all_dimensions.push_back(std::move(dimensions));
+    current_dim_ptr += num_dims_for_output;
+  }
+  return all_dimensions;
 }
 
 } // namespace pjrt

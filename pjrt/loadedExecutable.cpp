@@ -2,6 +2,7 @@
 #include "detail/callbackUserData.hpp"
 #include "deviceView.hpp"
 #include "event.hpp"
+#include "executable.hpp"
 #include "loadedExecutable.hpp"
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -23,18 +24,10 @@
 namespace pjrt {
 
 LoadedExecutable::LoadedExecutable(const Context &context, PJRT_LoadedExecutable *loadedExecutable) : context_(context), loadedExecutable_(loadedExecutable) {
-  // Query PJRT for the executable's output shape.
-  PJRT_LoadedExecutable_GetExecutable_Args args;
-  args.struct_size = PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE;
-  args.loaded_executable = loadedExecutable_;
-  PJRT_Error *error = context_.pjrtApi_->PJRT_LoadedExecutable_GetExecutable(&args);
-  if (error != nullptr) {
-    throw context_.convertPjrtErrorToException(error, "PJRT_LoadedExecutable_GetExecutable", __FILE__, __LINE__);
-  }
-  executable_ = Executable(context, args.executable);
+  getExecutableProperties();
 }
 
-LoadedExecutable::LoadedExecutable(LoadedExecutable &&other) : context_(other.context_), loadedExecutable_(other.loadedExecutable_), executable_(std::move(other.executable_)) {
+LoadedExecutable::LoadedExecutable(LoadedExecutable &&other) : context_(other.context_), loadedExecutable_(other.loadedExecutable_) {
   other.loadedExecutable_ = nullptr;
 }
 
@@ -42,7 +35,6 @@ LoadedExecutable& LoadedExecutable::operator=(LoadedExecutable &&other) {
   assert(((void)"Cannot assign a LoadedExecutable from one context to another", &other.context_ == &context_));
   loadedExecutable_ = other.loadedExecutable_;
   other.loadedExecutable_ = nullptr;
-  executable_ = std::move(other.executable_);
   return *this;
 }
 
@@ -75,7 +67,8 @@ void LoadedExecutable::destroy() {
   }
 }
 
-std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Buffer &inputBuffer) {
+std::future<std::vector<Buffer>> LoadedExecutable::execute(
+    const DeviceView& device, std::vector<Buffer*>& argument_handles) {
   // Prepare and Execute the Compiled Program
   PJRT_ExecuteOptions exec_options;
   exec_options.struct_size = PJRT_ExecuteOptions_STRUCT_SIZE;
@@ -95,17 +88,21 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
   exec_args.executable = loadedExecutable_;
   exec_args.options = &exec_options;
 
-  // Argument lists: Our program takes 1 argument. We are executing on 1 device.
-  PJRT_Buffer* actual_input_buffers_for_device0[] = {inputBuffer.c_buffer()}; // Use getter
-  PJRT_Buffer* const* argument_lists_for_all_devices[] = {actual_input_buffers_for_device0}; // Array of lists of args
+  // Argument lists: Our program takes multiple arguments. We are executing on 1 device.
+  std::vector<PJRT_Buffer*> actual_input_buffers_for_device0(argument_handles.size());
+  for (size_t i = 0; i < argument_handles.size(); ++i) {
+    actual_input_buffers_for_device0[i] = argument_handles[i]->c_buffer();
+  }
+  PJRT_Buffer* const* argument_lists_for_all_devices[] = {
+      actual_input_buffers_for_device0.data()};
   exec_args.argument_lists = argument_lists_for_all_devices;
   exec_args.num_devices = 1; // We are launching on a single device instance here
-  exec_args.num_args = 1;    // The @main function has one argument %arg0
+  exec_args.num_args = argument_handles.size();
 
   // Output setup
-  PJRT_Buffer* raw_output_c_buffer = nullptr;
+  std::vector<PJRT_Buffer*> raw_output_c_buffers(numOutputs_);
   PJRT_Buffer** output_list_for_device0[1];
-  output_list_for_device0[0] = &raw_output_c_buffer;
+  output_list_for_device0[0] = raw_output_c_buffers.data();
   exec_args.output_lists = output_list_for_device0;
 
   // Device complete events: one event per device in the launch
@@ -119,41 +116,42 @@ std::future<Buffer> LoadedExecutable::execute(const DeviceView &device, const Bu
     throw context_.convertPjrtErrorToException(exec_error, "PJRT_LoadedExecutable_Execute", __FILE__, __LINE__);
   }
 
-  // =================================================================================================
-  // TODO: The buffer is not yet ready. Because of this, I think we cannot get the dimensions yet.
-  // Should we:
-  //  1. On completion of execution, immediately trigger the fetching of the Shape of the buffer.
-  //  2. Allow creation of a buffer which does not yet know its shape and lazily fetch it if requested.
-  //
-  // Our general philosophy so far has been to not do anything lazily, so maybe #1 for consistency.
-
-  // // Get the output buffer dimensions using raw_output_c_buffer
-  // PJRT_Buffer_Dimensions_Args dim_args;
-  // dim_args.struct_size = PJRT_Buffer_Dimensions_Args_STRUCT_SIZE;
-  // dim_args.extension_start = nullptr;
-  // dim_args.buffer = raw_output_c_buffer; // Use the C buffer pointer populated by Execute
-  // dim_args.dims = nullptr;
-  // dim_args.num_dims = 0;
-
-  // PJRT_Error* dim_error = context_.pjrtApi_->PJRT_Buffer_Dimensions(&dim_args);
-  // if (dim_error != nullptr) {
-  //   throw context_.convertPjrtErrorToException(dim_error, "PJRT_Buffer_Dimensions (getting rank)", __FILE__, __LINE__);
-  // }
-  // =================================================================================================
-
-  // std::vector<int64_t> actual_dimensions(dim_args.dims, dim_args.dims+dim_args.num_dims);
-
-  std::vector<int64_t> fake_dimensions = {128};
-
-  // Construct the final Buffer object
-  pjrt::Buffer final_output_buffer(context_, raw_output_c_buffer, std::move(fake_dimensions));
+  std::vector<Buffer> final_output_buffers;
+  final_output_buffers.reserve(numOutputs_);
+  for (size_t i = 0; i < numOutputs_; ++i) {
+    final_output_buffers.emplace_back(context_, raw_output_c_buffers[i], std::move(outputDimensions_[i]));
+  }
 
   // Create CallbackUserData with the fully formed Buffer
-  std::unique_ptr<detail::CallbackUserData<Buffer>> callbackUserData =
-      std::make_unique<detail::CallbackUserData<Buffer>>(context_, std::move(final_output_buffer));
+  std::unique_ptr<detail::CallbackUserData<std::vector<Buffer>>> callbackUserData =
+      std::make_unique<detail::CallbackUserData<std::vector<Buffer>>>(context_, std::move(final_output_buffers));
 
   return context_.getFutureForEvent(device_complete_event_handles[0], std::move(callbackUserData));
 }
 
+void LoadedExecutable::getExecutableProperties() {
+  // Query PJRT for the executable's output shape.
+  PJRT_LoadedExecutable_GetExecutable_Args args;
+  args.struct_size = PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE;
+  args.loaded_executable = loadedExecutable_;
+  PJRT_Error *error = context_.pjrtApi_->PJRT_LoadedExecutable_GetExecutable(&args);
+  if (error != nullptr) {
+    throw context_.convertPjrtErrorToException(error, "PJRT_LoadedExecutable_GetExecutable", __FILE__, __LINE__);
+  }
+  Executable executable(context_, args.executable);
+  numOutputs_ = executable.getNumOutputs();
+  outputDimensions_ = executable.getOutputDimensions();
+  std::cout << "Fetched num outputs as " << numOutputs_ << std::endl;
+  std::cout << "Fetched output dimensions as " << std::endl;
+  for (const auto& dim : outputDimensions_) {
+    std::cout << "  [";
+    for (size_t i = 0; i < dim.size(); ++i) {
+      std::cout << dim[i] << ',';
+    }
+    std::cout << "]\n";
+  }
+  std::cout << std::endl;
+
+}
 
 } // namespace pjrt

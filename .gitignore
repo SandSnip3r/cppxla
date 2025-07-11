@@ -4,3 +4,5 @@ dump/
 .vscode/
 __pycache__/
 myStableHlo.txt
+**/.gemini/
+**/*.stablehlo

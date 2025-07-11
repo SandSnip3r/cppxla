@@ -2,7 +2,7 @@
 #define PJRT_LOADED_EXECUTABLE_HPP_
 
 #include "buffer.hpp"
-#include "executable.hpp"
+// #include "executable.hpp"
 
 #include <future>
 
@@ -22,13 +22,18 @@ public:
 
   void destroy();
 
-  std::future<Buffer> execute(const DeviceView &device, const Buffer &inputBuffer);
+  std::future<std::vector<Buffer>> execute(const DeviceView& device,
+                                           std::vector<Buffer*>& argument_handles);
 public:
 // private:
   const Context &context_;
   PJRT_LoadedExecutable *loadedExecutable_;
-  Executable executable_{context_, nullptr};
-
+  // Executable executable_{context_, nullptr};
+  size_t numOutputs_;
+  std::vector<std::vector<int64_t>> outputDimensions_;
+  
+private:
+  void getExecutableProperties();
 };
 
 } // namespace pjrt

@@ -69,10 +69,12 @@ module @jit_my_function attributes {mhlo.num_partitions = 1 : i32, mhlo.num_repl
     const std::vector<int64_t> input_shape = {kNumElements};
     pjrt::Buffer input_buffer = client_.transferToDevice(input_data.data(), input_shape, *device_).get();
 
-    pjrt::Buffer output_buffer = executable->execute(*device_, input_buffer).get();
+    std::vector<pjrt::Buffer*> input_buffers = {&input_buffer};
+    std::vector<pjrt::Buffer> output_buffers = executable->execute(*device_, input_buffers).get();
 
+    ASSERT_EQ(output_buffers.size(), 1);
     // The expected output shape is the same as the input shape.
-    EXPECT_EQ(output_buffer.dimensions(), input_shape)
+    EXPECT_EQ(output_buffers[0].dimensions(), input_shape)
         << "Output shape mismatch.";
 }
 

@@ -2,6 +2,7 @@
 #define PJRT_EXECUTABLE_HPP_
 
 #include <cstddef>
+#include <vector>
 
 struct PJRT_Executable;
 
@@ -19,6 +20,7 @@ public:
   void destroy();
 
   size_t getNumOutputs();
+  std::vector<std::vector<int64_t>> getOutputDimensions();
 private:
   const Context &context_;
   PJRT_Executable *executable_;

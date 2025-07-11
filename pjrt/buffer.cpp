@@ -28,36 +28,61 @@ Buffer::Buffer(Buffer &&other) : context_(other.context_), buffer_(other.buffer_
   other.buffer_ = nullptr;
 }
 
+Buffer& Buffer::operator=(Buffer &&other) {
+  assert(((void)"Cannot assign a Buffer from one context to another", &other.context_ == &context_));
+  assert(((void)"Cannot assign a Buffer from one shape to another", other.dimensions_ == dimensions_));
+
+  // Handle self-assignment
+  if (this == &other) {
+    return *this;
+  }
+
+  const std::optional<pjrt::Exception> exception = privateDestroyBuffer();
+  if (exception) {
+    throw exception.value();
+  }
+
+  this->buffer_ = other.buffer_;
+  other.buffer_ = nullptr;
+  return *this;
+}
+
 Buffer::~Buffer() {
   if (buffer_ == nullptr) {
     return;
   }
-  PJRT_Buffer_Destroy_Args destroy_args;
-  destroy_args.struct_size = PJRT_Buffer_Destroy_Args_STRUCT_SIZE;
-  destroy_args.extension_start = nullptr;
-  destroy_args.buffer = buffer_;
-  PJRT_Error* pjrtError = context_.pjrtApi_->PJRT_Buffer_Destroy(&destroy_args);
-  if (pjrtError == nullptr) {
+  const std::optional<pjrt::Exception> exception = privateDestroyBuffer();
+  if (!exception) {
     return;
   }
   // PJRT_Buffer_Destroy may fail, we choose to do nothing about that failure in the destructor. If you need to handle the failure, call destroy() before destruction.
-  const pjrt::Exception ex = context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_Destroy", __FILE__, __LINE__);
-  std::cerr << "pjrt::Buffer destructor failed to destroy PJRT_Buffer: \"" << ex.what() << "\"" << std::endl;
+  std::cerr << "pjrt::Buffer destructor failed to destroy PJRT_Buffer: \"" << exception->what() << "\"" << std::endl;
 }
 
 void Buffer::destroy() {
   if (buffer_ == nullptr) {
     return;
   }
+  const std::optional<pjrt::Exception> exception = privateDestroyBuffer();
+  if (!exception) {
+    return;
+  }
+  throw exception.value();
+}
+
+std::optional<pjrt::Exception> Buffer::privateDestroyBuffer() {
+  if (buffer_ == nullptr) {
+    return {};
+  }
   PJRT_Buffer_Destroy_Args destroy_args;
   destroy_args.struct_size = PJRT_Buffer_Destroy_Args_STRUCT_SIZE;
   destroy_args.extension_start = nullptr;
   destroy_args.buffer = buffer_;
   PJRT_Error* pjrtError = context_.pjrtApi_->PJRT_Buffer_Destroy(&destroy_args);
   if (pjrtError == nullptr) {
-    return;
+    return {};
   }
-  throw context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_Destroy", __FILE__, __LINE__);
+  return context_.convertPjrtErrorToException(pjrtError, "PJRT_Buffer_Destroy", __FILE__, __LINE__);
 }
 
 } // namespace pjrt

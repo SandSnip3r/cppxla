@@ -1,0 +1,9 @@
+
+# Python virtual environment
+.venv
+
+# Build directory
+build/
+
+# MNIST dataset files
+*-ubyte
