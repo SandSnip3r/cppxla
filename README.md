@@ -18,14 +18,16 @@ This project works by loading the XLA shared library and wraps the C API with an
 
 After cloning this repository, two steps are required before you are ready to build:
 
-1. Go grab the [pjrt_c_api.h](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api.h) from [OpenXLA](https://github.com/openxla/xla). Place it in the root level of this project. We provide one, but it is not always kept up to date.
-2. Pip install jax\[cuda\] in a python virtual environment in the current directory:
+1. Go grab the [pjrt_c_api.h](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api.h) from [OpenXLA](https://github.com/openxla/xla). Place it in the root level of this project. We provide one, but it is not guaranteed to be kept up to date.
+2. Use [get_compile_options.ipynb](get_compile_options.ipynb) to reuse the JAX code which creates the compile options which are passed to PJRT. _Ideally you should run this python code on the same machine which you intend to use this C++ library on._ Copy these compile option bytes into the `compileOptionsData` array in [pjrt/client.cpp](pjrt/client.cpp).
+3. Pip install jax\[cuda\] in a python virtual environment in the current directory:
 
 ```
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+> Note: Sourcing this virtual environment sets `PJRT_PLUGIN_FULL_PATH_CONFIG` which is required by CMake to find the PJRT plugin path as installed by JAX
 
 # Building
 
