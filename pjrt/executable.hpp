@@ -19,8 +19,8 @@ public:
 
   void destroy();
 
-  size_t getNumOutputs();
-  std::vector<std::vector<int64_t>> getOutputDimensions();
+  size_t getNumOutputs() const;
+  std::vector<std::vector<int64_t>> getOutputDimensions() const;
 private:
   const Context &context_;
   PJRT_Executable *executable_;

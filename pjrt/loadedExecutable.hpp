@@ -2,7 +2,7 @@
 #define PJRT_LOADED_EXECUTABLE_HPP_
 
 #include "buffer.hpp"
-// #include "executable.hpp"
+#include "executable.hpp"
 
 #include <future>
 
@@ -28,12 +28,9 @@ public:
 // private:
   const Context &context_;
   PJRT_LoadedExecutable *loadedExecutable_;
-  // Executable executable_{context_, nullptr};
-  size_t numOutputs_;
-  std::vector<std::vector<int64_t>> outputDimensions_;
   
 private:
-  void getExecutableProperties();
+  Executable getExecutable() const;
 };
 
 } // namespace pjrt

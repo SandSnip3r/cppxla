@@ -39,7 +39,8 @@ public:
   std::string platformName() const;
 
   LoadedExecutable compileFromStableHloString(const std::string &stableHloProgram) const;
-  DeviceView getFirstDevice() const;
+  size_t getNumDevices() const;
+  DeviceView getDevice(size_t deviceNumber) const;
 
   // Asynchronously transfers given data to the specified device.
   // `shape` must stay alive until the future is ready.
@@ -49,6 +50,9 @@ public:
 // private:
   const Context &context_;
   PJRT_Client *client_{nullptr};
+
+private:
+  void getAddressableDevices(PJRT_Client_AddressableDevices_Args &addressableDevicesArgs) const;
 };
 
 template <typename T>

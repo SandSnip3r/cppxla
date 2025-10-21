@@ -20,10 +20,11 @@
 namespace pjrt {
 
 Executable::Executable(const Context &context, PJRT_Executable *executable) : context_(context), executable_(executable) {
-
+  std::cout << "Constructed Executable" << std::endl;
 }
 
 Executable::Executable(Executable &&other) : context_(other.context_), executable_(other.executable_) {
+  std::cout << "Move-constructed Executable" << std::endl;
   other.executable_ = nullptr;
 }
 
@@ -60,7 +61,7 @@ Executable& Executable::operator=(Executable &&other) {
   return *this;
 }
 
-size_t Executable::getNumOutputs() {
+size_t Executable::getNumOutputs() const {
   PJRT_Executable_NumOutputs_Args args;
   args.struct_size = PJRT_Executable_NumOutputs_Args_STRUCT_SIZE;
   args.executable = executable_;
@@ -71,7 +72,7 @@ size_t Executable::getNumOutputs() {
   return args.num_outputs;
 }
 
-std::vector<std::vector<int64_t>> Executable::getOutputDimensions() {
+std::vector<std::vector<int64_t>> Executable::getOutputDimensions() const {
   PJRT_Executable_OutputDimensions_Args args;
   args.struct_size = PJRT_Executable_OutputDimensions_Args_STRUCT_SIZE;
   args.executable = executable_;

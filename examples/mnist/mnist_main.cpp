@@ -24,7 +24,7 @@ int main() {
     pjrt::Client client(context);
 
     // Get PJRT Device
-    pjrt::DeviceView device = client.getFirstDevice();
+    pjrt::DeviceView device = client.getDevice(/*deviceNumber=*/0);
 
     // Load and Compile StableHLO Programs
     const std::string kInitModelHloFilename = "init_model.stablehlo";

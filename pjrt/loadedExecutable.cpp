@@ -23,9 +23,7 @@
 
 namespace pjrt {
 
-LoadedExecutable::LoadedExecutable(const Context &context, PJRT_LoadedExecutable *loadedExecutable) : context_(context), loadedExecutable_(loadedExecutable) {
-  getExecutableProperties();
-}
+LoadedExecutable::LoadedExecutable(const Context &context, PJRT_LoadedExecutable *loadedExecutable) : context_(context), loadedExecutable_(loadedExecutable) {}
 
 LoadedExecutable::LoadedExecutable(LoadedExecutable &&other) : context_(other.context_), loadedExecutable_(other.loadedExecutable_) {
   other.loadedExecutable_ = nullptr;
@@ -54,7 +52,7 @@ LoadedExecutable::~LoadedExecutable() {
 }
 
 void LoadedExecutable::destroy() {
-  if (!loadedExecutable_) {
+  if (loadedExecutable_ == nullptr) {
     return;
   }
   PJRT_LoadedExecutable_Destroy_Args exec_destroy_args;
@@ -90,17 +88,19 @@ std::future<std::vector<Buffer>> LoadedExecutable::execute(
 
   // Argument lists: Our program takes multiple arguments. We are executing on 1 device.
   std::vector<PJRT_Buffer*> actual_input_buffers_for_device0(argument_handles.size());
-  for (size_t i = 0; i < argument_handles.size(); ++i) {
+  for (size_t i=0; i<argument_handles.size(); ++i) {
     actual_input_buffers_for_device0[i] = argument_handles[i]->c_buffer();
   }
   PJRT_Buffer* const* argument_lists_for_all_devices[] = {
-      actual_input_buffers_for_device0.data()};
+      actual_input_buffers_for_device0.data()
+  };
   exec_args.argument_lists = argument_lists_for_all_devices;
   exec_args.num_devices = 1; // We are launching on a single device instance here
   exec_args.num_args = argument_handles.size();
 
-  // Output setup
-  std::vector<PJRT_Buffer*> raw_output_c_buffers(numOutputs_);
+    // Output setup
+  const Executable executable = getExecutable();
+  std::vector<PJRT_Buffer*> raw_output_c_buffers(executable.getNumOutputs());
   PJRT_Buffer** output_list_for_device0[1];
   output_list_for_device0[0] = raw_output_c_buffers.data();
   exec_args.output_lists = output_list_for_device0;
@@ -116,10 +116,11 @@ std::future<std::vector<Buffer>> LoadedExecutable::execute(
     throw context_.convertPjrtErrorToException(exec_error, "PJRT_LoadedExecutable_Execute", __FILE__, __LINE__);
   }
 
+  const std::vector<std::vector<int64_t>> outputDimensions = executable.getOutputDimensions();
   std::vector<Buffer> final_output_buffers;
-  final_output_buffers.reserve(numOutputs_);
-  for (size_t i = 0; i < numOutputs_; ++i) {
-    final_output_buffers.emplace_back(context_, raw_output_c_buffers[i], std::move(outputDimensions_[i]));
+  final_output_buffers.reserve(executable.getNumOutputs());
+  for (size_t i = 0; i < executable.getNumOutputs(); ++i) {
+    final_output_buffers.emplace_back(context_, raw_output_c_buffers[i], std::move(outputDimensions[i]));
   }
 
   // Create CallbackUserData with the fully formed Buffer
@@ -129,7 +130,7 @@ std::future<std::vector<Buffer>> LoadedExecutable::execute(
   return context_.getFutureForEvent(device_complete_event_handles[0], std::move(callbackUserData));
 }
 
-void LoadedExecutable::getExecutableProperties() {
+Executable LoadedExecutable::getExecutable() const {
   // Query PJRT for the executable's output shape.
   PJRT_LoadedExecutable_GetExecutable_Args args;
   args.struct_size = PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE;
@@ -138,20 +139,7 @@ void LoadedExecutable::getExecutableProperties() {
   if (error != nullptr) {
     throw context_.convertPjrtErrorToException(error, "PJRT_LoadedExecutable_GetExecutable", __FILE__, __LINE__);
   }
-  Executable executable(context_, args.executable);
-  numOutputs_ = executable.getNumOutputs();
-  outputDimensions_ = executable.getOutputDimensions();
-  std::cout << "Fetched num outputs as " << numOutputs_ << std::endl;
-  std::cout << "Fetched output dimensions as " << std::endl;
-  for (const auto& dim : outputDimensions_) {
-    std::cout << "  [";
-    for (size_t i = 0; i < dim.size(); ++i) {
-      std::cout << dim[i] << ',';
-    }
-    std::cout << "]\n";
-  }
-  std::cout << std::endl;
-
+  return Executable(context_, args.executable);
 }
 
 } // namespace pjrt

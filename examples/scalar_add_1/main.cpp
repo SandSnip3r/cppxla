@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
 
   // Compile program
   pjrt::LoadedExecutable executable = client.compileFromStableHloString(stableHloStr);
-  pjrt::DeviceView device = client.getFirstDevice();
+  pjrt::DeviceView device = client.getDevice(/*deviceNumber=*/0);
   std::cout << "Created device" << std::endl;
 
   // Try running the compiled executable

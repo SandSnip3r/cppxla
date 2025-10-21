@@ -20,7 +20,7 @@ protected:
     void SetUp() override {
         // Get the first device for testing
         // Ensure client has devices available
-        ASSERT_NO_THROW(device_ = client_.getFirstDevice());
+        ASSERT_NO_THROW(device_ = client_.getDevice(/*deviceNumber=*/0));
         ASSERT_NE(device_->device_, nullptr) << "Failed to get a device for testing.";
     }
 };

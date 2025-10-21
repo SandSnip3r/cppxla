@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
   pjrt::Client client(context);
   std::cout << "PJRT_Client created successfully!" << std::endl;
   std::cout << "Platform Name: " << client.platformName() << std::endl << std::endl;
-  pjrt::DeviceView device = client.getFirstDevice();
+  pjrt::DeviceView device = client.getDevice(/*deviceNumber=*/0);
 
   // Read HLO program from file
   std::string stableHloStr;
